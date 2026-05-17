@@ -4,7 +4,7 @@ Phased build-out. Each phase has a concrete deliverable, a verification step, an
 
 ---
 
-## Phase 1 — Design + Scaffold *(current)*
+## Phase 1 — Design + Scaffold *(complete)*
 
 **Goal:** Get the design written down and prove the engine seams work.
 
@@ -25,22 +25,23 @@ What's explicitly **not** here: actual gameplay, hex map rendering, AI, the Fort
 
 ---
 
-## Phase 2 — World Generation
+## Phase 2 — World Generation *(complete)*
 
 **Goal:** Generate a real world from a seed and display it.
 
-Deliverables:
-- Full `procgen/map_gen.py` (cellular automaton + biomes + roads + scarcity).
-- Full `procgen/faction_gen.py` placing Bosses, Mobiles, and Embedded factions per the rules in `PROCGEN.md`.
-- `procgen/relationships.py` for the grudge graph.
-- `procgen/threats.py` for starting threat clocks.
-- A new scene: **world view**. Hex map rendered. Hardholds, mobile factions, and embedded-faction indicators visible (with appropriate fog-of-war for the player's archetype).
-- Player can pick an archetype at game start and the world generates with them placed correctly.
+Delivered:
+- `procgen/map_gen.py`: fertile-pocket BFS painting + distance-from-fertile terrain bands + irradiated zones + Dijkstra road tracing + scarcity tagging.
+- `procgen/faction_gen.generate_factions`: places 4–7 Bosses on fertile hexes; 1–3 Mobiles in distant wastes/ruins; 0–3 Embedded per hold with no-archetype-duplication; Fixers get 0–2 extra hold branches; exactly one faction flagged `is_player`.
+- `procgen/relationships.py`: archetype-pair sentiment baselines, Boss/Boss adjacency hostility bonus, one named grudge per faction.
+- `procgen/threats.py`: 1–2 threats per non-player faction with class-filtered templates and partially-pre-filled clocks.
+- `procgen/world_gen.generate_world(seed, player_archetype)` orchestrating it all with per-subsystem derived RNGs.
+- `scenes/world_view.py`: pointy-top hex rendering, terrain palette, road polylines, hold/mobile markers with player ring, sidebar with player block + per-hex info + archetype-aware embedded fog-of-war.
+- Title → Archetype select → World view wired end-to-end (Enter or click on a chosen archetype generates the world).
 
 Verification:
-- A new test `tests/test_world_gen.py` snapshots a full world for a known seed.
-- Loading the same seed twice produces the same hex map, factions, and relationship graph.
-- Visual: the hex map renders, hardholds are at fertile-pocket centers, roads connect them.
+- `tests/test_world_gen.py` — 10 tests covering determinism, structural invariants (every Boss on fertile, every Embedded has a host, Mobiles off boss-hexes, irradiated tiles have Maelstrom bias, exactly one player), and threat-index validity.
+- 23/23 tests pass.
+- Visual: see `world_view_boss.png` / `world_view_roadlord.png` (same seed, different player archetypes).
 
 ---
 

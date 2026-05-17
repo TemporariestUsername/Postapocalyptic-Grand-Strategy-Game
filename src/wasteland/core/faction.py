@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from .hex import Hex
+
 
 class ArchetypeClass(str, Enum):
     """Three structural relationships to geography."""
@@ -79,11 +81,20 @@ class Faction:
     # Resource values keyed by Resource.value. Not strongly typed here because
     # different archetypes hold different keys.
     resources: dict[str, int] = field(default_factory=dict)
-    # For territorial: the hex coordinates this faction owns.
-    # For mobile: the single hex it's currently in.
-    # For embedded: the name of its host hold.
-    # All three left abstract here; the procgen layer will fill them in.
-    location: str | None = None
+
+    # Geographic state - asymmetric by class:
+    #   Territorial: location_hex is the hold's hex; host_holds is empty.
+    #   Mobile:      location_hex is the hex it's in this turn; host_holds is empty.
+    #   Embedded:    location_hex is None; host_holds is the list of hold names
+    #                this faction lives inside (one for most, 1+ for Fixers).
+    location_hex: Hex | None = None
+    host_holds: list[str] = field(default_factory=list)
+
+    # Human-readable location description for rosters / UI. Filled by procgen.
+    location_label: str | None = None
+
+    # True for the faction the player controls. Procgen sets exactly one.
+    is_player: bool = False
 
     @property
     def archetype_class(self) -> ArchetypeClass:

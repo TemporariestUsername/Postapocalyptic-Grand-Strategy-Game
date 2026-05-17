@@ -98,8 +98,20 @@ GANG_NOUNS = (
 )
 
 
+_IRREGULAR_PLURALS = {
+    "Wolf": "Wolves",
+    "Knife": "Knives",
+}
+
+
+def _pluralize(noun: str) -> str:
+    if noun in _IRREGULAR_PLURALS:
+        return _IRREGULAR_PLURALS[noun]
+    return noun + "s"
+
+
 def gang_name(rng: random.Random) -> str:
-    return f"The {rng.choice(GANG_ADJECTIVES)} {rng.choice(GANG_NOUNS)}s"
+    return f"The {rng.choice(GANG_ADJECTIVES)} {_pluralize(rng.choice(GANG_NOUNS))}"
 
 
 # --- Cult / embedded faction names --------------------------------------------

@@ -2,7 +2,7 @@
 
 A turn-based, post-apocalyptic grand strategy game inspired by Vincent Baker's tabletop RPG *Apocalypse World*. You don't play a faceless empire — you play one kind of power: the Boss of a walled hold, the warlord of a road-gang, a Prophet whispering in someone else's temple. The wasteland generates fresh from a seed every time.
 
-This repository is at **Phase 1: design + scaffold**. There is no playable game yet. The Pygame app launches, the scene system works, the procedural name generator is deterministic, and the design is fully written down in `docs/`. Phase 2 begins building the actual world generator behind the interfaces defined here. See `docs/ROADMAP.md`.
+This repository is at **Phase 2: world generation**. Phase 1 (design + scaffold) and Phase 2 (procedural world + hex-map rendering) are complete. The app generates a fresh wasteland from a seed — terrain bands, roads, irradiated zones, hardholds on fertile pockets, mobile gangs in the wastes between, embedded factions tucked inside holds — and renders it for any of the 8 playable archetypes. No turn-taking, no actions, no AI yet; that's Phase 3+. See `docs/ROADMAP.md`.
 
 ## Status
 
@@ -25,11 +25,12 @@ python -m wasteland --roster --seed 42  # print a procedural faction roster and 
 pytest                          # run the tests
 ```
 
-The scaffold proves:
-- A Pygame window opens and a scene system dispatches events/updates/draws.
+What works today:
 - The title screen offers `New Game` and `Quit`.
-- `New Game` opens an archetype-select screen listing **all 8 archetypes** (Boss, Roadlord, Warhound, Prophet, Tinker, Whisper, Fixer, Hostkeeper) grouped by class — any one is selectable, proving the "every faction type is playable" constraint at the UI layer.
-- The procedural name generator is deterministic for a given seed and produces a different roster for a different seed.
+- Archetype select lists **all 8 archetypes** (Boss, Roadlord, Warhound, Prophet, Tinker, Whisper, Fixer, Hostkeeper) grouped by class. Pick any one.
+- Picking an archetype generates a full world for the current seed and opens the **world view**: a pointy-top hex map showing terrain (wastes / ruins / fertile / irradiated / deep wilds), procedurally traced roads between fertile pockets, hardholds with names, mobile gangs in the wastes, and a sidebar with player info, selected-hex info, and embedded-faction visibility filtered by your archetype's fog-of-war rules.
+- The procedural name generator and the full world generator are deterministic: same seed → byte-identical world.
+- Esc returns to the title screen at any point.
 
 ## Inspiration & attribution
 

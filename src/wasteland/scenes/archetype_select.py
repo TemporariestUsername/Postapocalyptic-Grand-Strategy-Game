@@ -65,10 +65,16 @@ class ArchetypeSelectScene(Scene):
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if self.selected is not None:
-            # In the "selected" sub-state, any click or key returns to the title.
-            if event.type in (pygame.MOUSEBUTTONDOWN, pygame.KEYDOWN):
-                from .title import TitleScene
-                self.next_scene = TitleScene(self.seed)
+            # In the "selected" sub-state: Enter / left-click generates and
+            # opens the world view; any other key returns to the title.
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                self._begin_game(self.selected)
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                    self._begin_game(self.selected)
+                else:
+                    from .title import TitleScene
+                    self.next_scene = TitleScene(self.seed)
             return
 
         if event.type == pygame.MOUSEMOTION:
@@ -82,6 +88,12 @@ class ArchetypeSelectScene(Scene):
         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             from .title import TitleScene
             self.next_scene = TitleScene(self.seed)
+
+    def _begin_game(self, archetype) -> None:
+        from ..procgen.world_gen import generate_world
+        from .world_view import WorldViewScene
+        world = generate_world(seed=self.seed, player_archetype=archetype)
+        self.next_scene = WorldViewScene(world)
 
     def update(self, dt_ms: int) -> None:
         pass
@@ -144,9 +156,9 @@ class ArchetypeSelectScene(Scene):
         draw_text(surface, ARCHETYPE_PITCH[self.selected],
                   (cx, rect.top + 80),
                   size=config.FONT_SIZE_BODY, color=config.COLOR_FG, center=True)
-        draw_text(surface, "Not implemented yet. See docs/ROADMAP.md.",
+        draw_text(surface, "Generate this world and enter it?",
                   (cx, rect.top + 130),
                   size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM, center=True)
-        draw_text(surface, "[click or press any key to return]",
+        draw_text(surface, "[Enter / click: begin   any other key: back]",
                   (cx, rect.bottom - 28),
                   size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM, center=True)
