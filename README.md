@@ -2,7 +2,7 @@
 
 A turn-based, post-apocalyptic grand strategy game inspired by Vincent Baker's tabletop RPG *Apocalypse World*. You don't play a faceless empire — you play one kind of power: the Boss of a walled hold, the warlord of a road-gang, a Prophet whispering in someone else's temple. The wasteland generates fresh from a seed every time.
 
-This repository is at **Phase 2: world generation**. Phase 1 (design + scaffold) and Phase 2 (procedural world + hex-map rendering) are complete. The app generates a fresh wasteland from a seed — terrain bands, roads, irradiated zones, hardholds on fertile pockets, mobile gangs in the wastes between, embedded factions tucked inside holds — and renders it for any of the 8 playable archetypes. No turn-taking, no actions, no AI yet; that's Phase 3+. See `docs/ROADMAP.md`.
+This repository is at **Phase 3: resolution + one playable Move**. Phases 1–3 are complete: design + scaffold, procedural world + hex map, and now Fortune Cards plus one Move (the Boss's *Tax the Hold*) wired end-to-end, with the universal *Catch your breath* meta-Move alongside it. Pick Boss as your archetype, click Tax the Hold, watch the deck shrink and the log fill. End the turn to refill your action budget. No AI opponents yet; that's Phase 5. See `docs/ROADMAP.md`.
 
 ## Status
 

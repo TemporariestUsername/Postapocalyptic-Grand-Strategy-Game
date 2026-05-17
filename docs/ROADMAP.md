@@ -45,20 +45,26 @@ Verification:
 
 ---
 
-## Phase 3 — Resolution + One Loop of One Move
+## Phase 3 — Resolution + One Loop of One Move *(complete)*
 
-**Goal:** Implement Fortune Cards and one playable Move end-to-end, for one archetype.
+**Goal:** Implement Fortune Cards and one playable Move end-to-end.
 
-Deliverables:
-- `engine/fortune.py` — the Fortune Deck per faction, draw mechanics, Snag table.
-- `engine/moves/` — Move dispatcher.
-- The Boss's `Tax the Hold` Move implemented: declares stat, resolves a card, applies effects, logs result.
-- A turn step that lets the player click "Tax the Hold" and see the consequence.
+Delivered:
+- `engine/fortune.py`: 12-card per-faction Fortune Deck with `_RANK`-based "better/worse of two" stat resolution, soft-cliff emergency draw when the deck is empty, and discard-then-reshuffle semantics for *Catch your breath*.
+- `engine/snags.py`: Snag table filtered by archetype class with per-faction effect callbacks.
+- `engine/log.py`: typed `LogEntry` with `LogKind` for move/outcome/snag/system lines.
+- `engine/moves/base.py`: `Move` ABC, module-level registry, `available_moves` and `get_move` helpers.
+- `engine/moves/tax_the_hold.py`: full implementation of the Boss's signature Move - Charm-stat draw, Strong/Mixed/Bitter branches with resource effects and a Bitter Snag.
+- `engine/moves/catch_your_breath.py`: universal meta-Move that reshuffles the deck for 2 Juice.
+- `engine/turn.py`: per-archetype action budgets, `end_turn` that ticks the turn counter and refills the player's actions.
+- `procgen/world_gen.py`: every faction gets a fresh `FortuneDeck` derived from a stable salt, so deck shuffles are part of the seed-deterministic world state.
+- `scenes/world_view.py`: sidebar gained an ACTIONS counter, deck composition readout (e.g. `2S 5M 3B`), clickable Move buttons that disable themselves with a veto reason when unavailable, a scrollable event log, and an End Turn button.
 
 Verification:
-- Drawing 12 cards from a fresh deck always yields exactly 3 Strong / 6 Mixed / 3 Bitter.
-- Stat-modified draws produce the right "better/worse of two" behavior (statistically tested over many seeded trials).
-- Clicking the Move in-game updates resources visibly.
+- `tests/test_fortune.py` (5 tests): canonical 3/6/3 composition, draw-empties-deck-to-discard, reshuffle restores 12, statistical assertion that stat +2 produces ≥1.5× the Strongs of stat 0 over 500 trials, emergency draw on empty deck.
+- `tests/test_moves.py` (10 tests): Strong/Mixed/Bitter Tax effects, veto when People=0, Catch-requires-2-Juice, action-budget table, end-turn refills, archetype-specific Move availability.
+- 38/38 tests pass.
+- Manual play: 5 turns of taxation grew Barter from 4 to 38, Heat from 2 to 13, exhausted the deck (0 remaining, 30 in discard), and Catch your breath became available exactly when expected.
 
 ---
 

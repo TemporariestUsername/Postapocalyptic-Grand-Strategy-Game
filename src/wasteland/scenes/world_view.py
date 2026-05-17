@@ -5,18 +5,18 @@ Layout:
     | hex map (left ~720px)                     | sidebar (~300px)   |
     |                                           | seed + turn        |
     |                                           | player block       |
+    |                                           | moves              |
     |                                           | selected hex info  |
-    |                                           | embedded list      |
-    |                                           | threats            |
+    |                                           | event log          |
     +-------------------------------------------+--------------------+
 
-Phase 2 is render + select-hex. No turn advancement, no actions, no AI.
 Pressing Esc returns to the title screen.
 """
 
 from __future__ import annotations
 
 import hashlib
+import random
 from dataclasses import dataclass
 
 import pygame
@@ -30,6 +30,8 @@ from ..core.faction import (
 )
 from ..core.hex import Hex, SQRT3, corners, to_pixel
 from ..core.world import World
+from ..engine.moves import Move, available_moves
+from ..engine.turn import end_turn
 from ..procgen.map_gen import (
     HexMap,
     TERRAIN_DEEP_WILDS,
@@ -106,6 +108,24 @@ def _compute_camera(hex_map: HexMap) -> _Camera:
     return _Camera(origin_x, origin_y)
 
 
+def _wrap(text: str, fnt: pygame.font.Font, max_px: int) -> list[str]:
+    """Greedy word-wrap to fit max_px pixels per line."""
+    words = text.split()
+    lines: list[str] = []
+    cur = ""
+    for w in words:
+        candidate = w if not cur else cur + " " + w
+        if fnt.size(candidate)[0] <= max_px:
+            cur = candidate
+        else:
+            if cur:
+                lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    return lines
+
+
 def _pixel_to_hex(px: float, py: float, origin: tuple[float, float], size: float) -> Hex:
     """Invert pointy-top axial transform; round to nearest hex."""
     ox, oy = origin
@@ -128,6 +148,23 @@ def _pixel_to_hex(px: float, py: float, origin: tuple[float, float], size: float
     return Hex(int(rx), int(rz))
 
 
+@dataclass
+class _MoveButton:
+    move: Move
+    rect: pygame.Rect
+    enabled: bool
+    veto_reason: str
+    hovered: bool = False
+
+
+@dataclass
+class _ActionButton:
+    """For non-Move sidebar actions like End Turn."""
+    label: str
+    rect: pygame.Rect
+    hovered: bool = False
+
+
 class WorldViewScene(Scene):
     def __init__(self, world: World) -> None:
         super().__init__()
@@ -143,6 +180,16 @@ class WorldViewScene(Scene):
             for host in f.host_holds:
                 self.factions_in_hold.setdefault(host, []).append(idx)
 
+        # Resolution RNG. Persists across moves so a single click is repeatable
+        # but the session as a whole feels live. Seeded off the world seed so
+        # a fresh game on the same seed plays out the same if the same Moves
+        # are chosen in the same order.
+        self._rng = random.Random(world.seed ^ 0xA9CE)
+
+        # Sidebar interactive elements, rebuilt each draw.
+        self._move_buttons: list[_MoveButton] = []
+        self._end_turn_btn: _ActionButton | None = None
+
     # ------------------------------------------------------------------ events
 
     def handle_event(self, event: pygame.event.Event) -> None:
@@ -150,14 +197,51 @@ class WorldViewScene(Scene):
             from .title import TitleScene
             self.next_scene = TitleScene(self.world.seed)
             return
+        if event.type == pygame.MOUSEMOTION:
+            for btn in self._move_buttons:
+                btn.hovered = btn.rect.collidepoint(event.pos)
+            if self._end_turn_btn is not None:
+                self._end_turn_btn.hovered = self._end_turn_btn.rect.collidepoint(event.pos)
+            return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             mx, my = event.pos
-            if mx < _MAP_AREA_W:
-                h = _pixel_to_hex(mx, my, (self.camera.origin_x, self.camera.origin_y), _HEX_SIZE)
-                if self.world.hex_map.in_bounds(h):
-                    self.selected = h
-                else:
-                    self.selected = None
+            if mx >= _MAP_AREA_W:
+                self._handle_sidebar_click((mx, my))
+                return
+            h = _pixel_to_hex(mx, my, (self.camera.origin_x, self.camera.origin_y), _HEX_SIZE)
+            if self.world.hex_map.in_bounds(h):
+                self.selected = h
+            else:
+                self.selected = None
+
+    def _handle_sidebar_click(self, pos: tuple[int, int]) -> None:
+        for btn in self._move_buttons:
+            if btn.rect.collidepoint(pos):
+                if btn.enabled:
+                    self._perform_move(btn.move)
+                return
+        if self._end_turn_btn is not None and self._end_turn_btn.rect.collidepoint(pos):
+            self._perform_end_turn()
+
+    # --------------------------------------------------------- resolution
+
+    def _perform_move(self, move: Move) -> None:
+        player = self.world.player
+        if player is None:
+            return
+        if self.world.actions_left < move.action_cost:
+            return
+        allowed, _ = move.can_attempt(self.world, player)
+        if not allowed:
+            return
+        self.world.actions_left -= move.action_cost
+        result = move.resolve(self.world, player, self._rng)
+        self.world.event_log.extend(result.entries)
+
+    def _perform_end_turn(self) -> None:
+        from ..engine.turn import end_turn as _end_turn
+        entries = _end_turn(self.world, self._rng)
+        self.world.event_log.extend(entries)
 
     # ------------------------------------------------------------------ update
 
@@ -249,35 +333,146 @@ class WorldViewScene(Scene):
                          (rect.left, 0), (rect.left, rect.height), 1)
 
         x = rect.left + 16
-        y = 16
+        y = 12
 
         # --- header
         draw_text(surface, config.TITLE, (x, y),
                   size=config.FONT_SIZE_HEADING, color=config.COLOR_BONE)
-        y += 36
+        y += 32
         draw_text(surface, f"seed {self.world.seed}", (x, y),
                   size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM)
-        y += 18
+        y += 16
         draw_text(surface, f"turn {self.world.turn}    maelstrom {self.world.maelstrom}/100",
                   (x, y), size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM)
-        y += 24
+        y += 20
 
         # --- player block
         player = self.world.player
         if player is not None:
             y = self._draw_faction_block(surface, x, y, player, header="YOU")
-            y += 6
+            y += 4
 
-        # --- selected hex
-        if self.selected is not None:
+        # --- moves panel
+        if player is not None:
+            y = self._draw_moves_panel(surface, x, y, player)
+
+        # --- selected hex (compact when there's not much vertical space left)
+        log_height_reserved = 130
+        end_turn_height = 50
+        max_y_for_hex = rect.height - log_height_reserved - end_turn_height
+        if self.selected is not None and y < max_y_for_hex - 60:
             tile = self.world.hex_map.get(self.selected)
             if tile is not None:
-                y = self._draw_hex_block(surface, x, y, tile)
+                self._draw_hex_block(surface, x, y, tile)
 
-        # --- footer
-        footer_y = rect.height - 26
+        # --- event log (anchored to the bottom-of-log area)
+        log_top = rect.height - log_height_reserved - end_turn_height
+        self._draw_event_log(surface, x, log_top, log_height_reserved)
+
+        # --- End Turn button + Esc footer
+        self._draw_end_turn(surface, rect, end_turn_height)
+
+    def _draw_moves_panel(self, surface: pygame.Surface, x: int, y: int, player: Faction) -> int:
+        budget_color = config.COLOR_ACCENT if self.world.actions_left > 0 else config.COLOR_DIM
+        draw_text(surface, f"ACTIONS  {self.world.actions_left}",
+                  (x, y), size=config.FONT_SIZE_SMALL, color=budget_color)
+        y += 18
+        deck = player.fortune
+        comp = deck.composition()
+        draw_text(
+            surface,
+            f"deck: {comp['strong']}S {comp['mixed']}M {comp['bitter']}B  "
+            f"({deck.remaining} left)",
+            (x, y), size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM,
+        )
+        y += 18
+
+        # Move buttons. Rebuilt every frame so enable/disable reflects current state.
+        self._move_buttons = []
+        button_w = _SIDEBAR_W - 32
+        button_h = 30
+        for move in available_moves(player):
+            allowed, reason = move.can_attempt(self.world, player)
+            enabled = (
+                allowed
+                and self.world.actions_left >= move.action_cost
+            )
+            if not allowed:
+                veto = reason
+            elif self.world.actions_left < move.action_cost:
+                veto = "no actions left"
+            else:
+                veto = ""
+            rect = pygame.Rect(x, y, button_w, button_h)
+            btn = _MoveButton(move=move, rect=rect, enabled=enabled, veto_reason=veto)
+            self._move_buttons.append(btn)
+            self._draw_move_button(surface, btn)
+            y += button_h + 4
+        return y + 6
+
+    def _draw_move_button(self, surface: pygame.Surface, btn: _MoveButton) -> None:
+        if btn.enabled:
+            bg = config.COLOR_BUTTON_HOVER if btn.hovered else config.COLOR_BUTTON
+            border = config.COLOR_BUTTON_BORDER
+            text_color = config.COLOR_FG
+            sub_color = config.COLOR_DIM
+        else:
+            bg = (28, 26, 23)
+            border = (60, 56, 50)
+            text_color = config.COLOR_DIM
+            sub_color = (90, 84, 76)
+        pygame.draw.rect(surface, bg, btn.rect, border_radius=2)
+        pygame.draw.rect(surface, border, btn.rect, width=1, border_radius=2)
+        # Label
+        label_surf = font(config.FONT_SIZE_BODY).render(btn.move.name, True, text_color)
+        surface.blit(label_surf, label_surf.get_rect(midleft=(btn.rect.left + 8, btn.rect.centery - 6)))
+        # Sub-line: stat + cost OR veto reason
+        if btn.enabled:
+            sub = f"{btn.move.stat}  ·  {btn.move.action_cost} action"
+        else:
+            sub = btn.veto_reason or "unavailable"
+        sub_surf = font(config.FONT_SIZE_SMALL).render(sub, True, sub_color)
+        surface.blit(sub_surf, sub_surf.get_rect(midleft=(btn.rect.left + 8, btn.rect.centery + 8)))
+
+    def _draw_event_log(self, surface: pygame.Surface, x: int, top: int, height: int) -> None:
+        draw_text(surface, "LOG", (x, top),
+                  size=config.FONT_SIZE_SMALL, color=config.COLOR_ACCENT)
+        line_h = 14
+        max_lines = max(0, (height - 20) // line_h)
+        entries = self.world.event_log[-max_lines:]
+        ly = top + 18
+        # Wrap each entry to the sidebar width.
+        wrap_px = _SIDEBAR_W - 32
+        small = font(config.FONT_SIZE_SMALL)
+        for entry in entries:
+            color = {
+                "move": config.COLOR_BONE,
+                "outcome": config.COLOR_FG,
+                "snag": (200, 130, 120),
+                "system": config.COLOR_DIM,
+            }.get(entry.kind.value, config.COLOR_FG)
+            for line in _wrap(entry.text, small, wrap_px):
+                surface.blit(small.render(line, True, color), (x, ly))
+                ly += line_h
+                if ly > top + height - line_h:
+                    return
+
+    def _draw_end_turn(self, surface: pygame.Surface, rect: pygame.Rect, height: int) -> None:
+        button_w = _SIDEBAR_W - 32
+        button_h = 30
+        bx = rect.left + 16
+        by = rect.height - height
+        button_rect = pygame.Rect(bx, by, button_w, button_h)
+        self._end_turn_btn = _ActionButton(label="End Turn", rect=button_rect)
+        bg = config.COLOR_BUTTON_HOVER if self._end_turn_btn.hovered else config.COLOR_BUTTON
+        pygame.draw.rect(surface, bg, button_rect, border_radius=2)
+        pygame.draw.rect(surface, config.COLOR_ACCENT, button_rect, width=1, border_radius=2)
+        label_surf = font(config.FONT_SIZE_BODY).render("End Turn", True, config.COLOR_BONE)
+        surface.blit(label_surf, label_surf.get_rect(center=button_rect.center))
+        # Esc footer beneath.
+        footer_y = button_rect.bottom + 4
         draw_text(surface, "Esc: back to title",
-                  (x, footer_y), size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM)
+                  (bx, footer_y), size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM)
 
     def _draw_faction_block(
         self, surface: pygame.Surface, x: int, y: int, f: Faction, header: str

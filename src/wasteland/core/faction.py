@@ -9,8 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from .hex import Hex
+
+if TYPE_CHECKING:
+    from ..engine.fortune import FortuneDeck
 
 
 class ArchetypeClass(str, Enum):
@@ -95,6 +99,10 @@ class Faction:
 
     # True for the faction the player controls. Procgen sets exactly one.
     is_player: bool = False
+
+    # Resolution state. Initialized to a fresh deck by procgen; left as None on
+    # demo factions that never enter the engine.
+    fortune: "FortuneDeck" = field(default=None)  # type: ignore[assignment]
 
     @property
     def archetype_class(self) -> ArchetypeClass:

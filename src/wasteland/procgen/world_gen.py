@@ -6,6 +6,9 @@ import random
 
 from ..core.faction import Archetype
 from ..core.world import World
+from ..engine.fortune import FortuneDeck
+from ..engine.log import LogEntry, LogKind
+from ..engine.turn import action_budget
 from ..rng import derive, make_rng
 from .faction_gen import generate_factions
 from .map_gen import generate_map
@@ -33,10 +36,22 @@ def generate_world(seed: int, player_archetype: Archetype) -> World:
     rng_threats = derive(root, "threats")
     threats = seed_threats(factions, rng_threats)
 
-    return World(
+    # Each faction gets a Fortune Deck shuffled from its own derived RNG, so
+    # the deck order is part of the seed-deterministic world state.
+    rng_decks = derive(root, "decks")
+    for i, f in enumerate(factions):
+        f.fortune = FortuneDeck.fresh(derive(rng_decks, f"deck-{i}-{f.name}"))
+
+    world = World(
         seed=seed,
         hex_map=hex_map,
         factions=factions,
         relationships=relationships,
         threats=threats,
     )
+    if world.player is not None:
+        world.actions_left = action_budget(world.player)
+    world.event_log.append(
+        LogEntry(turn=world.turn, kind=LogKind.SYSTEM, text=f"--- Season {world.turn} ---")
+    )
+    return world
