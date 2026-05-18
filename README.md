@@ -1,41 +1,274 @@
 # Wasteland
 
-A turn-based, post-apocalyptic grand strategy game inspired by Vincent Baker's tabletop RPG *Apocalypse World*. You don't play a faceless empire — you play one kind of power: the Boss of a walled hold, the warlord of a road-gang, a Prophet whispering in someone else's temple. The wasteland generates fresh from a seed every time.
+A turn-based, post-apocalyptic **grand strategy game** inspired by Vincent Baker's tabletop RPG *Apocalypse World*. You don't play a faceless empire — you play **one kind of power**: the Boss of a walled hold, the warlord of a road-gang, a Prophet whispering inside someone else's temple. Every world generates fresh from a seed; every faction has a Leader and a council of named Officers; every hold has Buildings that produce, decay, and need keeping.
 
-This repository is at **Phase 3: resolution + one playable Move**. Phases 1–3 are complete: design + scaffold, procedural world + hex map, and now Fortune Cards plus one Move (the Boss's *Tax the Hold*) wired end-to-end, with the universal *Catch your breath* meta-Move alongside it. Pick Boss as your archetype, click Tax the Hold, watch the deck shrink and the log fill. End the turn to refill your action budget. No AI opponents yet; that's Phase 5. See `docs/ROADMAP.md`.
-
-## Status
-
-- Design: see [`docs/DESIGN.md`](docs/DESIGN.md)
-- Archetype catalogue: see [`docs/FACTIONS.md`](docs/FACTIONS.md)
-- Procedural generation contract: see [`docs/PROCGEN.md`](docs/PROCGEN.md)
-- Mechanics (resolution, clocks, economy): see [`docs/MECHANICS.md`](docs/MECHANICS.md)
-- The Maelstrom: see [`docs/MAELSTROM.md`](docs/MAELSTROM.md)
-- Roadmap: see [`docs/ROADMAP.md`](docs/ROADMAP.md)
-
-## Quick start
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-python -m wasteland             # launches the Pygame app
-python -m wasteland --seed 42   # deterministic procgen demo
-python -m wasteland --roster --seed 42  # print a procedural faction roster and exit
-pytest                          # run the tests
+```
+                          THE WASTELAND
+            Boss → Roadlord → Warhound → Prophet → Tinker
+                  Whisper → Fixer → Hostkeeper
+            Eight archetypes. Three structural classes.
+              All eight are playable from turn one.
 ```
 
-What works today:
-- The title screen offers `New Game` and `Quit`.
-- Archetype select lists **all 8 archetypes** (Boss, Roadlord, Warhound, Prophet, Tinker, Whisper, Fixer, Hostkeeper) grouped by class. Pick any one.
-- Picking an archetype generates a full world for the current seed and opens the **world view**: a pointy-top hex map showing terrain (wastes / ruins / fertile / irradiated / deep wilds), procedurally traced roads between fertile pockets, hardholds with names, mobile gangs in the wastes, and a sidebar with player info, selected-hex info, and embedded-faction visibility filtered by your archetype's fog-of-war rules.
-- The procedural name generator and the full world generator are deterministic: same seed → byte-identical world.
-- Esc returns to the title screen at any point.
+---
 
-## Inspiration & attribution
+## What's in the box right now
 
-This game is *inspired by* but not derived from *Apocalypse World* (2010) by D. Vincent Baker. None of Baker's text is reused. The playbook names have been reskinned (Hardholder → Boss, Chopper → Roadlord, Hocus → Prophet, Gunlugger → Warhound, Savvyhead → Tinker, Brainer → Whisper, Operator → Fixer, Maestro D' → Hostkeeper). The setting words "Maelstrom" and "barter" are used in tribute. If you've never played *Apocalypse World*, you should — the influence is open and admiring.
+The repo is at the end of **Phase 3.5: Personnel, Locations, Buildings, Dynamics**. What that means concretely:
+
+- **Procedural world generation.** A 24×16 pointy-top hex map with fertile pockets, irradiated zones, deep wilds, and Dijkstra-traced roads between fertile centers. 4–7 Bosses on fertile hexes, 1–3 mobile gangs in the wastes, 0–3 embedded factions per hold. Determinism: the same seed produces a byte-identical world.
+- **Eight playable archetypes.** Pick any from the title screen → archetype select. The choice changes where you start, what resources you track, which Moves you have, and which officers run your faction.
+- **Personnel system.** Each faction is a **Leader + 3 named Officers**. Each Character has **five 0–100 stats** specific to their archetype's class:
+  - **Territorial** (Boss): Authority, Industry, Vigilance, Standing, Cunning.
+  - **Mobile** (Roadlord, Warhound): Notoriety, Cohesion, Mobility, Standing, Cunning.
+  - **Embedded** (Prophet, Tinker, Whisper, Fixer, Hostkeeper): Influence, Network, Discretion, Conviction, Cunning.
+- **Dynamic stats.** Successful Moves deposit XP into the acting officer's primary stat; idle stats drift toward 50 each turn. Specialists (≥ 70) bend the Fortune Card draw; the weak (≤ 30) bend it the wrong way.
+- **Locations + Buildings.** Bosses own hex-bound LocationStates; Mobile gangs carry a *camp* that moves with them; Embedded factions own Buildings *inside* their host's hold. Each archetype has one signature starting building (Granary, Garage, Drill Yard, Shrine, Workshop, Hidden Cell, Backroom, Tavern) yielding resources scaled by condition.
+- **Resolution mechanic — Fortune Cards.** A 12-card per-faction deck (3 Strong / 6 Mixed / 3 Bitter). Each Move declares the stat and officer it keys on; high stats let you keep the better of two cards, low stats keep the worse. Bitter outcomes carry a procedural Snag.
+- **One full Move playable end-to-end.** The Boss's **Tax the Hold** is fully wired: action cost, veto reasons, Strong/Mixed/Bitter branches with Authority XP for the Steward, an event-log entry. The universal **Catch your breath** meta-Move reshuffles your Fortune Deck for 2 Juice.
+- **Upkeep step.** End-turn dynamics: pending XP applied, idle stats drift, buildings tick (yield + condition), Heat decays, discontent drifts in Boss holds.
+- **Deterministic CLI demo.** `python -m wasteland --roster --seed 42` prints a full procedural faction roster (leaders, officers with their stats, hold names, grudges) to stdout for the seed and exits — no window needed.
+
+What's **not** in yet — see [`docs/ROADMAP.md`](docs/ROADMAP.md):
+
+- The Move catalogue beyond Tax the Hold and Catch your breath (Phase 4).
+- Threat clocks ticking (Phase 4).
+- AI for rival factions (Phase 5).
+- The Maelstrom subsystem as code (Phase 4).
+
+---
+
+## Installation
+
+### Prerequisites
+
+- **Python 3.10 or newer.** `python --version` to check.
+- **`pip`** and **`venv`** (both ship with modern Python).
+- **A graphical display** if you want the Pygame UI. The `--roster` CLI mode does not need one.
+
+System packages for Pygame on Linux (only if `pip install pygame` fails — most distributions don't need these):
+
+```bash
+# Debian / Ubuntu
+sudo apt-get install -y libsdl2-2.0-0 libsdl2-image-2.0-0 libsdl2-mixer-2.0-0 libsdl2-ttf-2.0-0
+
+# Fedora
+sudo dnf install -y SDL2 SDL2_image SDL2_mixer SDL2_ttf
+
+# macOS (Homebrew) — usually not needed; pygame wheels include SDL
+brew install sdl2 sdl2_image sdl2_mixer sdl2_ttf
+```
+
+Windows: nothing extra. The pygame wheel from PyPI bundles SDL.
+
+### Install (recommended: editable, in a virtualenv)
+
+```bash
+git clone https://github.com/TemporariestUsername/Postapocalyptic-Grand-Strategy-Game.git
+cd Postapocalyptic-Grand-Strategy-Game
+
+python -m venv .venv
+source .venv/bin/activate          # Linux / macOS
+# .venv\Scripts\activate           # Windows PowerShell
+# .venv\Scripts\activate.bat       # Windows cmd.exe
+
+pip install --upgrade pip
+pip install -e ".[dev]"
+```
+
+`-e` installs in *editable* mode — code changes show up without reinstalling.
+`[dev]` pulls in `pytest`. Leave it off if you only want to play.
+
+### Verify the install
+
+```bash
+pytest                  # should report 70 passed
+python -m wasteland --roster --seed 42   # deterministic faction roster to stdout
+```
+
+If both work, you're good. If pytest is happy but the Pygame window won't open, see [Troubleshooting](#troubleshooting) below.
+
+---
+
+## Running
+
+### Launch the game
+
+```bash
+python -m wasteland                     # random seed
+python -m wasteland --seed 42           # specific seed
+wasteland                                # also works if the install put the console script on PATH
+```
+
+Opens a 1024×768 window. Esc returns from any scene; the window's close button always exits.
+
+### Roster demo (no window)
+
+Prints a deterministic procedural roster for the seed and exits. Use it to peek at a world without opening the UI, or to confirm determinism after a change.
+
+```bash
+python -m wasteland --roster --seed 42
+```
+
+Sample tail of the output:
+
+```
+--- TERRITORIAL ---
+  boss         Furnace
+               led by Clorzess, their own gates
+               authority 69  industry 47  vigilance 53  standing 58  cunning 64
+               · steward       Orss
+               · marshal       Urr
+               · bailiff       Krairk
+               grudge: Furnace owes blood to The Pale Lockup.
+```
+
+### Tests
+
+```bash
+pytest                  # everything
+pytest tests/test_characters.py     # one file
+pytest -q -k upkeep                 # by keyword
+```
+
+Currently **70 tests pass.**
+
+---
+
+## How to play (Phase 3.5 build)
+
+1. **Title screen.** Click **New Game**. (Or **Quit**.)
+2. **Archetype select.** Pick any of the eight archetypes. Each shows a one-line pitch.
+3. **World view.** You'll see the generated hex map. Your faction's marker has an accent ring. The sidebar shows:
+   - Your faction name and the leader's stats (one line, class-specific abbreviations: `Aut 79  Ind 62  Vig 47  Std 52  Cun 63`).
+   - Your council of 3 Officers with their primary stat.
+   - Your action budget (3 for a Boss, 2 for everyone else).
+   - Your Fortune Deck composition (`3S 6M 3B  (12 left)`).
+   - Move buttons for your archetype. Disabled buttons show their veto reason.
+   - An event log at the bottom.
+4. **Click a hex** to inspect it. Boss-owned hexes show their Buildings (`granary L1  cond 100%  · Plonox`) and any hosted Buildings from Embedded factions inside the hold.
+5. **Click a Move button** (Boss-only **Tax the Hold**, or the universal **Catch your breath**) to spend an action. The log fills with the outcome.
+6. **Click End Turn** to refill your actions and run Upkeep. Stats drift, building yields accrue, Heat decays.
+
+There are no AI rivals yet — they sit on the map and don't act. The point of Phase 3.5 is the substrate; Phase 4 brings the Move catalogue and AI follows in Phase 5.
+
+---
+
+## Project layout
+
+```
+Postapocalyptic-Grand-Strategy-Game/
+├── README.md                       you are here
+├── pyproject.toml                  package metadata, pygame + pytest deps
+├── docs/
+│   ├── DESIGN.md                   master design document
+│   ├── FACTIONS.md                 archetype catalogue (officers, buildings, defeats)
+│   ├── MECHANICS.md                resolution, clocks, economy, turn order
+│   ├── PERSONNEL.md                Character model, stat schema, dynamics
+│   ├── LOCATIONS.md                LocationState, Buildings, ownership rules
+│   ├── PROCGEN.md                  the seed → world contract
+│   ├── MAELSTROM.md                psychic threat system
+│   └── ROADMAP.md                  what's done, what's next
+├── src/wasteland/
+│   ├── __main__.py                 CLI entry point (--seed, --roster)
+│   ├── app.py                      Pygame loop + scene dispatch
+│   ├── config.py                   window size, palette
+│   ├── rng.py                      seeded RNG with stable derive(parent, salt)
+│   ├── core/
+│   │   ├── faction.py              Faction, Archetype, ArchetypeClass
+│   │   ├── characters.py           Character, CharacterRole, STAT_SCHEMA, ROSTER
+│   │   ├── buildings.py            Building, BuildingType, BUILDING_YIELDS
+│   │   ├── locations.py            LocationState
+│   │   ├── resources.py            Resource enum, per-class resource sets
+│   │   ├── world.py                World root container
+│   │   ├── hex.py                  pointy-top hex math
+│   │   └── clock.py                threat-clock primitive
+│   ├── procgen/
+│   │   ├── world_gen.py            top-level: map + factions + locations + threats + decks
+│   │   ├── map_gen.py              terrain, irradiated zones, roads, scarcity
+│   │   ├── faction_gen.py          Bosses → Mobiles → Embedded; demo roster CLI
+│   │   ├── relationships.py        sentiment graph
+│   │   ├── threats.py              per-faction threat clocks
+│   │   └── names.py                phonotactic name generators
+│   ├── engine/
+│   │   ├── fortune.py              FortuneDeck + stat_modifier(v)
+│   │   ├── moves/                  Move ABC + Tax the Hold + Catch your breath
+│   │   ├── snags.py                Bitter-outcome complications, class-filtered
+│   │   ├── log.py                  LogEntry / LogKind
+│   │   ├── turn.py                 end_turn + action budgets
+│   │   └── upkeep.py               XP + stat drift + building yields + Heat decay
+│   ├── scenes/
+│   │   ├── title.py                title screen
+│   │   ├── archetype_select.py     pick your power
+│   │   └── world_view.py           hex map + sidebar
+│   └── ui/text.py                  font helper
+└── tests/                          70 tests, deterministic
+```
+
+---
+
+## Design documents
+
+The design predates the code by intent. Read these in order if you want the full picture:
+
+1. **[`docs/DESIGN.md`](docs/DESIGN.md)** — the master document. Premise, player fantasy, three structural classes, resources, stats, resolution, Moves, the Maelstrom.
+2. **[`docs/FACTIONS.md`](docs/FACTIONS.md)** — the archetype catalogue. Officer rosters and signature Buildings per archetype.
+3. **[`docs/MECHANICS.md`](docs/MECHANICS.md)** — Fortune Cards, snags, the Upkeep step, action budgets, turn order, defeat conditions.
+4. **[`docs/PERSONNEL.md`](docs/PERSONNEL.md)** — Character model, the 0–100 stat schema, role primaries, XP/decay dynamics.
+5. **[`docs/LOCATIONS.md`](docs/LOCATIONS.md)** — LocationState, Buildings, ownership rules per class.
+6. **[`docs/PROCGEN.md`](docs/PROCGEN.md)** — what `seed → World` is contractually guaranteed to produce.
+7. **[`docs/MAELSTROM.md`](docs/MAELSTROM.md)** — the psychic undertow, threshold events, who eats from this table.
+8. **[`docs/ROADMAP.md`](docs/ROADMAP.md)** — phased build-out; what's done and what's next.
+
+---
+
+## Determinism
+
+Every procgen subsystem takes an explicit `random.Random` derived from the root seed via `rng.derive(parent, salt: str)`. This means:
+
+- The same seed produces the same world, byte-for-byte. (Tested.)
+- Adding a new generation step doesn't shift downstream draws — give it its own derived RNG.
+- Fortune Decks are part of the seed-deterministic world state; reshuffles use a separate per-Move RNG (seeded off the world seed at scene init) so player choice still feels alive.
+
+If you ever need to debug an interesting situation, the seed in the sidebar lets anyone reproduce it.
+
+---
+
+## Troubleshooting
+
+**`pip install` fails on `pygame`.** Upgrade pip (`pip install --upgrade pip`) and retry. If that still fails on Linux, install the SDL2 system packages listed in [Prerequisites](#prerequisites).
+
+**Pygame window won't open (Linux, headless, WSL).** Either run on a real desktop session, or set the dummy driver: `SDL_VIDEODRIVER=dummy python -m wasteland --roster --seed 42` is the no-graphics path. On WSL2, install a desktop or use the `--roster` mode.
+
+**`ModuleNotFoundError: wasteland`.** You probably forgot `pip install -e .` or aren't in the venv. Activate it and re-install.
+
+**`pytest` finds tests but they import as `wasteland.X` and fail.** `pyproject.toml` puts `src/` on `pythonpath` for pytest already; if you've changed the layout, restore `pythonpath = ["src"]` in `[tool.pytest.ini_options]`.
+
+**ALSA warnings on Linux at startup.** Harmless — pygame initializes audio. The game makes no sounds yet.
+
+---
+
+## Inspiration and attribution
+
+This game is *inspired by* but not derived from **[*Apocalypse World*](http://apocalypse-world.com/) (2010) by D. Vincent Baker**. None of Baker's text is reused. The playbook names have been reskinned:
+
+| AW playbook  | Wasteland archetype |
+|--------------|---------------------|
+| Hardholder   | Boss                |
+| Chopper      | Roadlord            |
+| Gunlugger    | Warhound            |
+| Hocus        | Prophet             |
+| Savvyhead    | Tinker              |
+| Brainer      | Whisper             |
+| Operator     | Fixer               |
+| Maestro D'   | Hostkeeper          |
+
+The setting words *"Maelstrom"* and *"barter"* are used in tribute. The mechanic — Fortune Cards with Strong/Mixed/Bitter outcomes — is original to this project; it captures the AW *feel* of "the most common outcome costs you something" without copying 2d6+stat math. If you've never played *Apocalypse World*, you should — the influence is open and admiring.
+
+---
 
 ## License
 
-MIT.
+MIT. See the project root for the full text once it's added; until then, treat the repo as MIT-licensed.
+
+Contributions, bug reports, and seed numbers that produced strange worlds all welcome.
