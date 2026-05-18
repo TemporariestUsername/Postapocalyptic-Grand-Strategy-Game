@@ -8,6 +8,11 @@ relevant stat modifies the draw:
     stat <= -1: draw two, keep the worse
     stat ==  0: draw one
 
+`stat` here is the -1/0/+1 modifier produced by `stat_modifier()`, which
+translates a 0-100 character stat into the draw tilt. Most stat values
+produce a single-card draw - only genuine specialists (>=70) or weak
+characters (<=30) bend luck.
+
 Bad luck is finite: if you've burned through two Bitters, only one remains in
 the deck. Counting cards is a legitimate strategic skill.
 """
@@ -106,3 +111,17 @@ class FortuneDeck:
         self.draw_pile.extend(self.discard)
         self.discard.clear()
         rng.shuffle(self.draw_pile)
+
+
+def stat_modifier(value: int) -> int:
+    """Translate a 0-100 character stat into the Fortune-draw tilt.
+
+    >=70 -> +1 (keep better of two), <=30 -> -1 (keep worse of two),
+    else 0 (single draw). The brackets are tight so most stats produce a
+    flat draw; only specialists at either end actively bend the deck.
+    """
+    if value >= 70:
+        return 1
+    if value <= 30:
+        return -1
+    return 0

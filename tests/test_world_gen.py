@@ -10,6 +10,24 @@ from wasteland.procgen.map_gen import (
 from wasteland.procgen.world_gen import generate_world
 
 
+def _character_sig(c) -> tuple:
+    return (c.name, c.role.value, c.age, tuple(sorted(c.stats.items())))
+
+
+def _location_sig(loc) -> tuple:
+    return (
+        loc.owner_faction_idx,
+        (loc.hex.q, loc.hex.r) if loc.hex else None,
+        loc.population,
+        loc.discontent,
+        loc.authority,
+        tuple((b.type.value, b.owner_faction_idx, b.level, b.condition, b.assigned_officer)
+              for b in loc.buildings),
+        tuple((b.type.value, b.owner_faction_idx, b.level, b.condition, b.assigned_officer)
+              for b in loc.hosted_buildings),
+    )
+
+
 def _signature(world) -> tuple:
     """Reduce the world to a tuple of hashable values for byte-for-byte comparison."""
     map_sig = tuple(
@@ -20,21 +38,25 @@ def _signature(world) -> tuple:
         (
             f.archetype.value,
             f.name,
-            f.leader_name,
             (f.location_hex.q, f.location_hex.r) if f.location_hex else None,
             tuple(f.host_holds),
             f.is_player,
-            (f.stats.grit, f.stats.menace, f.stats.charm, f.stats.insight, f.stats.weird),
+            _character_sig(f.leader) if f.leader else None,
+            tuple(_character_sig(o) for o in f.officers),
             tuple(sorted(f.resources.items())),
+            _location_sig(f.camp) if f.camp else None,
         )
         for f in world.factions
+    )
+    locations_sig = tuple(
+        ((q, r), _location_sig(loc)) for (q, r), loc in sorted(world.locations.items())
     )
     rel_sig = tuple(sorted(world.relationships.sentiments.items()))
     threat_sig = tuple(
         (t.source_idx, t.target_idx, t.clock.label, t.clock.segments, t.clock.filled)
         for t in world.threats.threats
     )
-    return (map_sig, factions_sig, rel_sig, threat_sig)
+    return (map_sig, factions_sig, locations_sig, rel_sig, threat_sig)
 
 
 def test_generate_world_is_deterministic_for_same_seed():
@@ -120,3 +142,44 @@ def test_threats_reference_real_faction_indices():
         assert 0 <= t.source_idx < n
         assert 0 <= t.target_idx < n
         assert t.source_idx != t.target_idx
+
+
+def test_every_faction_has_leader_and_three_officers():
+    world = generate_world(seed=42, player_archetype=Archetype.BOSS)
+    for f in world.factions:
+        assert f.leader is not None, f"{f.name} has no leader"
+        assert len(f.officers) == 3, f"{f.name} has {len(f.officers)} officers"
+
+
+def test_every_boss_has_a_location_with_granary():
+    world = generate_world(seed=42, player_archetype=Archetype.BOSS)
+    for idx, f in enumerate(world.factions):
+        if f.archetype is Archetype.BOSS and f.location_hex is not None:
+            key = (f.location_hex.q, f.location_hex.r)
+            assert key in world.locations
+            loc = world.locations[key]
+            assert loc.owner_faction_idx == idx
+            assert any(b.type.value == "granary" for b in loc.buildings)
+
+
+def test_every_mobile_has_a_camp_with_one_building():
+    world = generate_world(seed=42, player_archetype=Archetype.WARHOUND)
+    for f in world.factions:
+        if ARCHETYPE_CLASS[f.archetype] is ArchetypeClass.MOBILE:
+            assert f.camp is not None
+            assert len(f.camp.buildings) == 1
+
+
+def test_every_embedded_has_a_hosted_building():
+    world = generate_world(seed=42, player_archetype=Archetype.BOSS)
+    # An Embedded faction's hosted building is somewhere in some host's
+    # hosted_buildings list, owned by the embedded faction's index.
+    owners_with_hosted = set()
+    for loc in world.locations.values():
+        for b in loc.hosted_buildings:
+            owners_with_hosted.add(b.owner_faction_idx)
+    for idx, f in enumerate(world.factions):
+        if ARCHETYPE_CLASS[f.archetype] is ArchetypeClass.EMBEDDED:
+            assert idx in owners_with_hosted, (
+                f"{f.name} (idx {idx}) has no hosted building anywhere"
+            )

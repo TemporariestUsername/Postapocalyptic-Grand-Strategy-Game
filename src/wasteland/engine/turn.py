@@ -33,14 +33,21 @@ def action_budget(faction: Faction) -> int:
 def end_turn(world: World, rng: random.Random) -> list[LogEntry]:
     """Advance to the next turn. Returns the entries to append to the log.
 
-    Phase 3: just refill the player's actions and tick the turn counter.
-    Phase 4+ will run rival AI actions and tick threat clocks here.
+    Order:
+        1. Bump the turn counter and emit the Season header.
+        2. Run Upkeep (character drift, building yields, Heat decay, locations).
+        3. Refill the player's action budget.
+
+    AI faction actions and threat-clock ticks land in Phase 5.
     """
+    from .upkeep import run_upkeep
+
     world.turn += 1
     player = world.player
     entries: list[LogEntry] = [
         LogEntry(turn=world.turn, kind=LogKind.SYSTEM, text=f"--- Season {world.turn} ---"),
     ]
+    entries.extend(run_upkeep(world, rng))
     if player is not None:
         world.actions_left = action_budget(player)
     return entries

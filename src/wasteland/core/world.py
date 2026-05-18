@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..procgen.map_gen import HexMap
     from ..procgen.relationships import RelationshipGraph
     from ..procgen.threats import ThreatRegistry
+    from .locations import LocationState
 
 
 @dataclass
@@ -23,6 +24,11 @@ class World:
     threats: "ThreatRegistry | None" = None
     turn: int = 1
     maelstrom: int = 15  # 0..100; rises with violence and death
+
+    # Hex-bound LocationState by axial (q, r). One per Boss-owned hex. Mobile
+    # camps live on the Faction; Embedded factions' buildings live in the
+    # host's LocationState.hosted_buildings list.
+    locations: dict[tuple[int, int], "LocationState"] = field(default_factory=dict)
 
     # Player-turn state.
     actions_left: int = 0

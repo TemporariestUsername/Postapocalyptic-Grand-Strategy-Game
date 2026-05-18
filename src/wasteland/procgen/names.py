@@ -71,6 +71,12 @@ def _stem(rng: random.Random) -> str:
     return s.capitalize()
 
 
+def officer_name(rng: random.Random) -> str:
+    """Officer names use the same phonotactic generator as leaders, but skip the
+    title/epithet/number flourishes so officers don't sound like rival leaders."""
+    return _stem(rng)
+
+
 def leader_name(rng: random.Random) -> str:
     roll = rng.random()
     stem = _stem(rng)

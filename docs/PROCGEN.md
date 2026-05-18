@@ -88,7 +88,7 @@ Two Bosses non-adjacent                  :   0 ± 20
 Boss + Mobile (Mobile has raided lately) : -40 ± 20
 Boss + Embedded inside their hold        :   0 ± 30   (host doesn't always know!)
 Two Embedded same host                   : -10 ± 30   (competitors)
-Prophet + anyone (Weird ≥ 2)             : +15 ± 20   (cult-affinity)
+Prophet + Embedded leader with Conviction ≥ 60 : +15 ± 20  (cult-affinity)
 Whisper + anyone                         :   0 ± 10   (cipher; relationships
                                                        built secretly later)
 ```

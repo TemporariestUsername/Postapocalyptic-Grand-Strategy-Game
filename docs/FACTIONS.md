@@ -20,7 +20,9 @@ There is one Territorial archetype.
 A Boss runs a hardhold — a fortified settlement with walls, grain, water, and a population that owes them taxes and conscription. Bosses are *public* in a way no other archetype is: everyone within five hexes knows the Boss's name.
 
 **Resources tracked:** Barter, Juice, Heat, Stock, People, Ammo, Walls
-**Stat lean:** Grit (3), Menace (2), Charm (2)
+**Officers:** Steward, Marshal, Bailiff
+**Signature building:** Granary (yields +2 Stock/turn; kept by the Steward)
+**Leader flagship:** Authority
 **Action budget:** 3 per turn
 **Signature Moves:** Tax the Hold, Conscript, Build Walls, Make an Example, Mount a Sortie
 **Defeat conditions:** Hold falls (Walls + Riders to 0 during a siege), or leader dies with no successor.
@@ -39,7 +41,9 @@ Mobile factions **own no land**. They occupy a single hex each turn and can move
 A biker gang. Lives on the road, makes the road dangerous for everyone else. Fuel is the limiting reagent of their existence. Their politics with hardholds are *transactional* — pay us, host us for the winter, or we take from you.
 
 **Resources tracked:** Barter, Juice, Heat, Gas, Riders, Ammo
-**Stat lean:** Menace (3), Grit (2), Charm (1), Insight (1), Weird (1)
+**Officers:** Lieutenant, Outrider, Bag-man
+**Signature building:** Garage (mobile camp; yields +2 Gas/turn; kept by the Outrider)
+**Leader flagship:** Notoriety
 **Action budget:** 2 actions + 1 free Ride per turn
 **Signature Moves:** Ride, Raid, Extort Tolls, Demand Sanctuary, Recruit on the Road
 **Defeat conditions:** Riders ≤ 1, or Gas at 0 with no Boss willing to fuel you.
@@ -50,7 +54,9 @@ A biker gang. Lives on the road, makes the road dangerous for everyone else. Fue
 Mercenary band. Where the Roadlord raids on principle, the Warhound takes contracts. They are professional in a way Roadlords aren't, which makes them valuable to Bosses and dangerous to everyone else.
 
 **Resources tracked:** Barter, Juice, Heat, Gas, Riders, Ammo
-**Stat lean:** Menace (3), Grit (2), Insight (2), Weird (1)
+**Officers:** Sergeant, Quartermaster, Scout
+**Signature building:** Drill Yard (mobile camp; yields +1 Riders/turn; kept by the Sergeant)
+**Leader flagship:** Cohesion
 **Action budget:** 2 actions per turn
 **Signature Moves:** Take the Contract, Storm a Hold, Drill the Squad, Sell Protection
 **Defeat conditions:** Riders ≤ 1, or no Contract holdable for 3 consecutive turns.
@@ -74,7 +80,9 @@ Embedded factions **live inside a host hardhold**. The host may or may not be th
 A cult leader. You convert the host's People into your Followers. Your power is the Maelstrom — the moves that grow your flock fastest also push the global Maelstrom meter toward 100.
 
 **Resources tracked:** Barter, Juice, Heat, Followers, Secrets, Cover
-**Stat lean:** Weird (3), Charm (3), Insight (1)
+**Officers:** Chosen, Doomsayer, Inquisitor
+**Signature building:** Shrine (hosted in your host's hold; yields +1 Followers/turn; kept by the Chosen)
+**Leader flagship:** Conviction
 **Action budget:** 2 actions + 1 Secret Move per turn
 **Signature Moves:** Preach, Convert, Open to the Maelstrom, Anoint a Successor, Schism a Rival
 **Defeat conditions:** Host evicts AND no new host accepts within 2 turns. (Also: if Maelstrom hits 100, *everyone* loses, but you'll have gotten there first.)
@@ -85,7 +93,9 @@ A cult leader. You convert the host's People into your Followers. Your power is 
 The hold's machine-fixer, weird-tech maker. People bring you broken things and walk away with terrible new ones. Your leverage is that the hold cannot replace you.
 
 **Resources tracked:** Barter, Juice, Heat, Followers (customers), Secrets, Cover
-**Stat lean:** Insight (3), Weird (3), Grit (1), Charm (1)
+**Officers:** Apprentice, Salvager, Junker
+**Signature building:** Workshop (hosted; yields +1 Barter/turn; kept by the Apprentice)
+**Leader flagship:** Network
 **Action budget:** 2 actions + 1 Secret Move per turn
 **Signature Moves:** Build Something Weird, Trade Up, Diagnose, Wire the Hold
 **Defeat conditions:** Same as Prophet — eviction with no fallback host.
@@ -96,7 +106,9 @@ The hold's machine-fixer, weird-tech maker. People bring you broken things and w
 A psychic. The most covert archetype in the game. Nobody knows the Whisper's name unless the Whisper wants them to.
 
 **Resources tracked:** Barter, Juice, Heat, Followers (marks), Secrets, Cover
-**Stat lean:** Insight (3), Weird (3), Menace (1), Charm (1)
+**Officers:** Acolyte, Sleeper, Listener
+**Signature building:** Hidden Cell (hosted, deeply concealed; yields +1 Secrets/turn; kept by the Sleeper)
+**Leader flagship:** Influence
 **Action budget:** 2 actions + 1 Secret Move per turn (Whisper's Secret Moves are extra-secret — they don't even reveal that *something* happened)
 **Signature Moves:** Read a Person, Plant a Suggestion, Brainwipe, Walk in Dreams
 **Defeat conditions:** Same as Prophet.
@@ -107,7 +119,9 @@ A psychic. The most covert archetype in the game. Nobody knows the Whisper's nam
 A smuggler / dealer / connection-broker. Uniquely among Embedded factions, the Fixer can hold presence in **multiple holds** at once — each one is a "branch." Each branch is a separate Cover/Heat tally. Defeat happens only when you lose your *last* branch.
 
 **Resources tracked:** Barter, Juice, Heat (per branch), Followers (contacts), Secrets, Cover (per branch)
-**Stat lean:** Charm (3), Insight (3), Grit (1), Menace (1)
+**Officers:** Lieutenant, Smuggler, Captain
+**Signature building:** Backroom (hosted in your primary branch; yields +1 Barter/turn; kept by the Smuggler)
+**Leader flagship:** Network
 **Action budget:** 2 actions per turn, drawn from any branch
 **Signature Moves:** Move Goods, Call in a Favor, Set up a Score, Sell a Secret
 **Defeat conditions:** Lose your last branch. (Hardest archetype to fully defeat; correspondingly the slowest to *win* with — you build influence one favor at a time.)
@@ -118,7 +132,9 @@ A smuggler / dealer / connection-broker. Uniquely among Embedded factions, the F
 You run an establishment — a bar, a brothel, a flophouse, a salon. People come to you, and they talk. Of the embedded archetypes, you're the most *publicly* visible. The Boss knows you exist. The Boss does not know what you know.
 
 **Resources tracked:** Barter, Juice, Heat, Followers (customers), Secrets, Cover
-**Stat lean:** Charm (3), Insight (2), Grit (1), Menace (1), Weird (1)
+**Officers:** Bartender, Bouncer, Madam
+**Signature building:** Tavern (hosted; yields +1 Juice and +1 Secrets/turn; kept by the Bartender)
+**Leader flagship:** Influence
 **Action budget:** 2 actions + 1 Secret Move per turn
 **Signature Moves:** Throw a Night, Hear Things, Run a Tab, Quietly Vanish Someone
 **Defeat conditions:** Eviction — and Hostkeepers cannot take a new host on the fly. Rebuilding the establishment takes 5 turns of vulnerability. The most fragile of the embeddeds.
@@ -127,16 +143,21 @@ You run an establishment — a bar, a brothel, a flophouse, a salon. People come
 
 ## Quick-Reference Matrix
 
-| Archetype  | Class       | Key resources               | Lean stats             | Defeat |
-|------------|-------------|-----------------------------|------------------------|--------|
-| Boss       | Territorial | Stock, People, Walls        | Grit, Menace           | Hold falls / leader dies |
-| Roadlord   | Mobile      | Gas, Riders                 | Menace, Grit           | No fuel / no gang |
-| Warhound   | Mobile      | Gas, Riders, Ammo           | Menace, Insight        | No gang / no contract |
-| Prophet    | Embedded    | Followers, Secrets, Cover   | Weird, Charm           | Evicted, no host |
-| Tinker     | Embedded    | Followers, Secrets, Cover   | Insight, Weird         | Evicted, no host |
-| Whisper    | Embedded    | Followers, Secrets, Cover   | Insight, Weird         | Evicted, no host |
-| Fixer      | Embedded    | Followers, Secrets, Cover×N | Charm, Insight         | Last branch lost |
-| Hostkeeper | Embedded    | Followers, Secrets, Cover   | Charm, Insight         | Evicted (5-turn rebuild) |
+Stat names are class-specific (see `docs/PERSONNEL.md`):
+- Territorial: Authority/Industry/Vigilance/Standing/Cunning.
+- Mobile: Notoriety/Cohesion/Mobility/Standing/Cunning.
+- Embedded: Influence/Network/Discretion/Conviction/Cunning.
+
+| Archetype  | Class       | Key resources               | Leader flagship | Officers                       | Signature building | Defeat |
+|------------|-------------|-----------------------------|-----------------|--------------------------------|--------------------|--------|
+| Boss       | Territorial | Stock, People, Walls        | Authority       | Steward, Marshal, Bailiff      | Granary            | Hold falls / leader dies |
+| Roadlord   | Mobile      | Gas, Riders                 | Notoriety       | Lieutenant, Outrider, Bag-man  | Garage (camp)      | No fuel / no gang |
+| Warhound   | Mobile      | Gas, Riders, Ammo           | Cohesion        | Sergeant, Quartermaster, Scout | Drill Yard (camp)  | No gang / no contract |
+| Prophet    | Embedded    | Followers, Secrets, Cover   | Conviction      | Chosen, Doomsayer, Inquisitor  | Shrine (hosted)    | Evicted, no host |
+| Tinker     | Embedded    | Followers, Secrets, Cover   | Network         | Apprentice, Salvager, Junker   | Workshop (hosted)  | Evicted, no host |
+| Whisper    | Embedded    | Followers, Secrets, Cover   | Influence       | Acolyte, Sleeper, Listener     | Hidden Cell (hosted)| Evicted, no host |
+| Fixer      | Embedded    | Followers, Secrets, Cover×N | Network         | Lieutenant, Smuggler, Captain  | Backroom (hosted)  | Last branch lost |
+| Hostkeeper | Embedded    | Followers, Secrets, Cover   | Influence       | Bartender, Bouncer, Madam      | Tavern (hosted)    | Evicted (5-turn rebuild) |
 
 ---
 

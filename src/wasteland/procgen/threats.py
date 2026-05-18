@@ -41,8 +41,8 @@ class Threat:
     source_idx: int   # index into the world's faction list
     target_idx: int
     clock: Clock
-    # Visible to the player only when their faction's Insight is high enough on
-    # the source. Phase 2 records this flag at generation time; Phase 3+ recomputes.
+    # Visible to the player only when their faction's Cunning is high enough on
+    # the source. Phase 2 records this flag at generation time; Phase 4+ recomputes.
     visible_to_player: bool = False
 
 

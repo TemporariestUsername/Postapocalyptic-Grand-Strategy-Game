@@ -118,21 +118,21 @@ This is a deliberately small economy. Each archetype tracks **about six resource
 
 ---
 
-## 6. Faction Stats
+## 6. Stats — *Characters, not Factions*
 
-Five faction-scale stats, reflavored from AW's Cool/Hard/Hot/Sharp/Weird:
+Stats don't live on the Faction. They live on the **Characters** that run the faction: a **Leader** and **3 Officers** (see `docs/PERSONNEL.md`). Every Character has five 0–100 stats; which five depends on the faction's class:
 
-| Stat | What it covers |
-|---|---|
-| **Grit** | Endurance, persistence, taking a hit. |
-| **Menace** | Capacity for violence. Read as: how willing is this faction to do something irreversible? |
-| **Charm** | Ability to bargain, recruit, charm a host. |
-| **Insight** | Information, foresight, reading rivals. |
-| **Weird** | Connection to the Maelstrom. |
+| Class       | Stats                                                  |
+|-------------|--------------------------------------------------------|
+| Territorial | **Authority, Industry, Vigilance, Standing, Cunning**  |
+| Mobile      | **Notoriety, Cohesion, Mobility, Standing, Cunning**   |
+| Embedded    | **Influence, Network, Discretion, Conviction, Cunning**|
 
-Every faction has all five. Archetypes weight them differently at generation (see `procgen/faction_gen.py: _STAT_WEIGHTS`). A Boss is grit-heavy and weird-light. A Prophet is the inverse.
+Cunning is shared across all classes (every leader needs guile). Standing is shared by Territorial and Mobile (the two classes that deal publicly with the wider world); Embedded swaps it for Conviction (commitment to the embedded mission — faith for Prophets, craft-obsession for Tinkers, profit-loyalty for Fixers).
 
-Each stat is a small integer (typically -1 to +5). Stats modify draws on the resolution mechanic.
+Stats are **dynamic**. They climb when used in Moves (Strong outcomes deposit XP into the acting officer's primary stat) and drift toward 50 each turn when idle. A specialist is someone who pushes themselves into the 70+ band; they bend Fortune draws in their favor. Most officers cluster around 50–60 and don't bend luck — they take the single card the deck deals them. Wounded officers (≤ 30) hurt Fortune draws.
+
+Each Move declares the stat and the officer role that performs it. Tax the Hold runs on the Steward's Authority; Storm a Hold runs on the Warhound Sergeant's Cohesion; Move Goods runs on the Fixer Lieutenant's Network. Same Fortune-card mechanic, but who picks the cards depends on which lieutenant you've kept alive and trained.
 
 ---
 
@@ -166,56 +166,58 @@ Bitter cards always come with a **Snag**: a procedurally chosen complication —
 
 Each archetype gets **4–6 signature Moves**. Below is the Phase-1 catalogue. Phase 2 fills in the mechanics for each (cost, stat, effect on Strong/Mixed/Bitter outcomes).
 
+Each Move declares its `acting_role` (the officer who performs it) and the named stat that feeds the Fortune draw. The role names are from each archetype's officer roster — see `docs/PERSONNEL.md` for the canonical slate.
+
 ### Boss (Territorial)
-- **Tax the Hold** *(Charm)* — gain Barter; People drop by 1 on Bitter, Heat rises on Bitter.
-- **Conscript** *(Menace)* — convert People into Riders/Soldiers; Mixed costs Juice.
-- **Build Walls** *(Grit)* — increase Walls; Mixed delays one turn.
-- **Make an Example** *(Menace)* — public execution; reduces Heat at the cost of Juice.
-- **Mount a Sortie** *(Menace)* — attack a hex outside your walls; Bitter means losing Riders without taking the hex.
+- **Tax the Hold** *(Steward · Authority)* — gain Barter; People drop by 1 on Bitter, Heat rises on Bitter.
+- **Conscript** *(Bailiff · Authority)* — convert People into Riders/Soldiers; Mixed costs Juice.
+- **Build Walls** *(Steward · Industry)* — increase Walls; Mixed delays one turn.
+- **Make an Example** *(Bailiff · Vigilance)* — public execution; reduces Heat at the cost of Juice.
+- **Mount a Sortie** *(Marshal · Vigilance)* — attack a hex outside your walls; Bitter means losing Riders without taking the hex.
 
 ### Roadlord (Mobile)
-- **Ride** *(free)* — move to an adjacent hex; ride farther on Strong.
-- **Raid** *(Menace)* — hit a hold or convoy; trade Riders for Barter/Stock.
-- **Extort Tolls** *(Charm)* — set up at a road junction; passive Barter every turn until pushed off.
-- **Demand Sanctuary** *(Charm)* — make a hold host you for the winter; raises mutual Heat.
-- **Recruit on the Road** *(Charm)* — gain Riders from broken holds; raises your Heat.
+- **Ride** *(Outrider · free)* — move to an adjacent hex; ride farther on Strong.
+- **Raid** *(Lieutenant · Notoriety)* — hit a hold or convoy; trade Riders for Barter/Stock.
+- **Extort Tolls** *(Bag-man · Notoriety)* — set up at a road junction; passive Barter every turn until pushed off.
+- **Demand Sanctuary** *(Bag-man · Standing)* — make a hold host you for the winter; raises mutual Heat.
+- **Recruit on the Road** *(Bag-man · Standing)* — gain Riders from broken holds; raises your Heat.
 
 ### Warhound (Mobile)
-- **Take the Contract** *(Insight)* — accept a Boss's job; guarantees Barter, but the job is rolled procedurally.
-- **Storm a Hold** *(Menace)* — full assault; Riders trade for Walls and People.
-- **Drill the Squad** *(Grit)* — recover Riders' fatigue; pulls one Bitter out of your deck and replaces with Mixed.
-- **Sell Protection** *(Charm)* — passive Barter from a hold while you stay nearby.
+- **Take the Contract** *(Quartermaster · Standing)* — accept a Boss's job; guarantees Barter, but the job is rolled procedurally.
+- **Storm a Hold** *(Sergeant · Cohesion)* — full assault; Riders trade for Walls and People.
+- **Drill the Squad** *(Sergeant · Cohesion)* — recover Riders' fatigue; pulls one Bitter out of your deck and replaces with Mixed.
+- **Sell Protection** *(Quartermaster · Standing)* — passive Barter from a hold while you stay nearby.
 
 ### Prophet (Embedded)
-- **Preach** *(Charm)* — gain Followers in your host hold.
-- **Convert** *(Charm)* — turn one of the host's People into your Followers; raises Heat.
-- **Open to the Maelstrom** *(Weird)* — gain Secrets; advances the global Maelstrom clock by 1.
-- **Anoint a Successor** *(Insight)* — establish a successor; survives your leader's death.
-- **Schism a Rival** *(Insight)* — split another embedded faction's Followers.
+- **Preach** *(Chosen · Conviction)* — gain Followers in your host hold.
+- **Convert** *(Doomsayer · Influence)* — turn one of the host's People into your Followers; raises Heat.
+- **Open to the Maelstrom** *(Chosen · Conviction)* — gain Secrets; advances the global Maelstrom clock by 1.
+- **Anoint a Successor** *(Chosen · Conviction)* — establish a successor; survives your leader's death.
+- **Schism a Rival** *(Inquisitor · Cunning)* — split another embedded faction's Followers.
 
 ### Tinker (Embedded)
-- **Build Something Weird** *(Weird)* — produce a one-shot artifact (procedural effect).
-- **Trade Up** *(Insight)* — convert Barter to better Barter via salvage; Mixed: less than promised.
-- **Diagnose** *(Insight)* — reveal one Secret about another faction in your host.
-- **Wire the Hold** *(Insight)* — set up surveillance that raises your Cover.
+- **Build Something Weird** *(Apprentice · Network)* — produce a one-shot artifact (procedural effect).
+- **Trade Up** *(Junker · Network)* — convert Barter to better Barter via salvage; Mixed: less than promised.
+- **Diagnose** *(Salvager · Cunning)* — reveal one Secret about another faction in your host.
+- **Wire the Hold** *(Apprentice · Discretion)* — set up surveillance that raises your Cover.
 
 ### Whisper (Embedded)
-- **Read a Person** *(Insight)* — gain a Secret about any named character.
-- **Plant a Suggestion** *(Weird)* — influence one of the host's actions next turn.
-- **Brainwipe** *(Weird)* — remove one Secret another faction holds about you.
-- **Walk in Dreams** *(Weird)* — see one rival's planned move; raises Maelstrom.
+- **Read a Person** *(Listener · Network)* — gain a Secret about any named character.
+- **Plant a Suggestion** *(Acolyte · Influence)* — influence one of the host's actions next turn.
+- **Brainwipe** *(Sleeper · Discretion)* — remove one Secret another faction holds about you.
+- **Walk in Dreams** *(Acolyte · Influence)* — see one rival's planned move; raises Maelstrom.
 
 ### Fixer (Embedded)
-- **Move Goods** *(Insight)* — convert Barter across two holds you have presence in.
-- **Call in a Favor** *(Charm)* — spend Juice for a one-time effect from any named character.
-- **Set up a Score** *(Insight)* — start a 3-segment clock that pays out Barter when it fills.
-- **Sell a Secret** *(Charm)* — trade Secrets for Barter or Juice.
+- **Move Goods** *(Lieutenant · Network)* — convert Barter across two holds you have presence in.
+- **Call in a Favor** *(Lieutenant · Network)* — spend Juice for a one-time effect from any named character.
+- **Set up a Score** *(Captain · Conviction)* — start a 3-segment clock that pays out Barter when it fills.
+- **Sell a Secret** *(Smuggler · Discretion)* — trade Secrets for Barter or Juice.
 
 ### Hostkeeper (Embedded)
-- **Throw a Night** *(Charm)* — gain Followers (customers); gain a Secret on Strong.
-- **Hear Things** *(Insight)* — gain a Secret about your host's plans.
-- **Run a Tab** *(Charm)* — defer a Barter cost from another Move; the tab itself becomes leverage on the debtor.
-- **Quietly Vanish Someone** *(Menace)* — remove a named character; raises Heat sharply.
+- **Throw a Night** *(Bartender · Influence)* — gain Followers (customers); gain a Secret on Strong.
+- **Hear Things** *(Madam · Network)* — gain a Secret about your host's plans.
+- **Run a Tab** *(Bartender · Influence)* — defer a Barter cost from another Move; the tab itself becomes leverage on the debtor.
+- **Quietly Vanish Someone** *(Bouncer · Discretion)* — remove a named character; raises Heat sharply.
 
 ---
 
@@ -245,7 +247,7 @@ The Maelstrom is a **global meter** from 0 to 100. It rises with:
 At threshold values (25, 50, 75, 100) the Maelstrom **acts**:
 
 - **25 — Omens.** Procedural narrative beats: dreams, dead birds, static. Mostly flavor.
-- **50 — Surges.** A named character somewhere in the wasteland *opens* — gains Weird, loses Grit. The faction's behavior shifts.
+- **50 — Surges.** A named character somewhere in the wasteland *opens* — Embedded characters gain Conviction; Territorial/Mobile characters gain Cunning but lose Standing (the wasteland senses something wrong with them). The faction's behavior shifts.
 - **75 — Possessions.** A faction's leader may be replaced by the Maelstrom's puppet, with a hostile agenda. Rare but devastating.
 - **100 — The Lid Comes Off.** Universal defeat condition. The game ends. Final Legacy score is calculated against the wasteland that no longer exists.
 
@@ -263,7 +265,7 @@ Examples:
 - *"The Cracked Snakes raid Glass-reach in 4 turns unless tribute is paid."* (4-segment clock, +1/turn unless the player pays Barter)
 - *"Hands of the Long Silence schism the Boss's flock in 6 turns."*
 
-The player can **see** clocks they have Insight enough to read, and can **stall** them with Moves. Clocks the player can't see are revealed when they fire.
+The player can **see** clocks they have a high-enough Cunning officer to read, and can **stall** them with Moves. Clocks the player can't see are revealed when they fire.
 
 See `docs/MECHANICS.md` for the threat-clock system in full.
 

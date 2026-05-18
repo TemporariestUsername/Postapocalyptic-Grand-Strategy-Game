@@ -17,7 +17,7 @@ from .base import Move, MoveResult, register
 
 class _CatchYourBreath(Move):
     name = "Catch your breath"
-    stat = "grit"
+    stat = None  # meta-Move: doesn't draw, doesn't key off any stat
     action_cost = 1
     archetypes = ()  # all archetypes
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import random
 
-from wasteland.core.faction import Archetype
+from wasteland.core.characters import CharacterRole
+from wasteland.core.faction import Archetype, Faction
 from wasteland.engine.fortune import FortuneDeck, Outcome
 from wasteland.engine.moves import TaxTheHold, CatchYourBreath, available_moves
 from wasteland.engine.turn import action_budget, end_turn
@@ -12,11 +13,7 @@ from wasteland.procgen.world_gen import generate_world
 
 
 def _force_top_card(deck: FortuneDeck, outcome: Outcome) -> None:
-    """Manipulate the deck so the next single-draw returns `outcome`.
-
-    We only test stat=0 paths here, so this just needs to put `outcome` on top.
-    """
-    # Find an instance of `outcome` in the draw pile and move it to position 0.
+    """Manipulate the deck so the next single-draw returns `outcome`."""
     for i, c in enumerate(deck.draw_pile):
         if c is outcome:
             deck.draw_pile.insert(0, deck.draw_pile.pop(i))
@@ -26,13 +23,20 @@ def _force_top_card(deck: FortuneDeck, outcome: Outcome) -> None:
 
 def _player_world():
     w = generate_world(seed=42, player_archetype=Archetype.BOSS)
-    return w, w.player
+    p = w.player
+    # Force the acting officer (the Steward, who runs Tax the Hold) and the
+    # leader to neutral Authority so the Fortune draw is a flat single-card
+    # draw - keeps these tests focused on outcome handling, not roll bias.
+    if p is not None and p.leader is not None:
+        p.leader.stats["authority"] = 50
+        for o in p.officers:
+            if o.role is CharacterRole.STEWARD:
+                o.stats["authority"] = 50
+    return w, p
 
 
 def test_strong_tax_gives_three_barter_no_heat():
     w, p = _player_world()
-    # Zero out Charm so the draw is a single card (no "keep better").
-    p.stats.charm = 0
     starting_barter = p.resources["barter"]
     starting_heat = p.resources["heat"]
     starting_people = p.resources["people"]
@@ -46,7 +50,6 @@ def test_strong_tax_gives_three_barter_no_heat():
 
 def test_mixed_tax_gives_two_barter_one_heat():
     w, p = _player_world()
-    p.stats.charm = 0
     starting_barter = p.resources["barter"]
     starting_heat = p.resources["heat"]
     _force_top_card(p.fortune, Outcome.MIXED)
@@ -58,7 +61,6 @@ def test_mixed_tax_gives_two_barter_one_heat():
 
 def test_bitter_tax_loses_people_and_rolls_snag():
     w, p = _player_world()
-    p.stats.charm = 0
     starting_people = p.resources["people"]
     starting_heat = p.resources["heat"]
     _force_top_card(p.fortune, Outcome.BITTER)
@@ -67,7 +69,6 @@ def test_bitter_tax_loses_people_and_rolls_snag():
     # +1 Barter is the consolation, -1 People, +2 Heat.
     assert p.resources["people"] == starting_people - 1
     assert p.resources["heat"] == starting_heat + 2
-    # Bitter result always produces 1 outcome + 1 snag entry, plus the move announce.
     kinds = [e.kind.value for e in result.entries]
     assert "snag" in kinds
 
@@ -78,6 +79,26 @@ def test_tax_the_hold_blocked_when_no_people_left():
     allowed, reason = TaxTheHold.can_attempt(w, p)
     assert not allowed
     assert "People" in reason
+
+
+def test_tax_grants_authority_xp_on_strong():
+    """A Strong Tax should deposit +2 Authority XP to the Steward."""
+    w, p = _player_world()
+    steward = next(o for o in p.officers if o.role is CharacterRole.STEWARD)
+    steward.pending_xp.clear()
+    _force_top_card(p.fortune, Outcome.STRONG)
+    TaxTheHold.resolve(w, p, random.Random(0))
+    assert steward.pending_xp.get("authority", 0) == 2
+
+
+def test_bitter_tax_immediately_lowers_steward_authority():
+    """Bitter outcomes wound the responsible officer's stat directly."""
+    w, p = _player_world()
+    steward = next(o for o in p.officers if o.role is CharacterRole.STEWARD)
+    steward.stats["authority"] = 50
+    _force_top_card(p.fortune, Outcome.BITTER)
+    TaxTheHold.resolve(w, p, random.Random(0))
+    assert steward.stats["authority"] == 47
 
 
 def test_catch_your_breath_requires_two_juice():
@@ -92,7 +113,6 @@ def test_catch_your_breath_requires_two_juice():
 def test_catch_your_breath_reshuffles_deck_and_consumes_juice():
     w, p = _player_world()
     p.resources["juice"] = 5
-    # Burn a couple cards so the deck is less than full.
     for _ in range(3):
         p.fortune.draw(random.Random(0), 0)
     assert p.fortune.remaining == 9
@@ -109,8 +129,8 @@ def test_action_budget_matches_archetype():
 
 
 def action_budget_for(archetype: Archetype) -> int:
-    from wasteland.core.faction import Faction, FactionStats
-    f = Faction(archetype=archetype, name="x", leader_name="y", stats=FactionStats())
+    # action_budget only reads archetype - no leader/officers/stats needed.
+    f = Faction(archetype=archetype, name="x")
     return action_budget(f)
 
 

@@ -54,7 +54,7 @@ Delivered:
 - `engine/snags.py`: Snag table filtered by archetype class with per-faction effect callbacks.
 - `engine/log.py`: typed `LogEntry` with `LogKind` for move/outcome/snag/system lines.
 - `engine/moves/base.py`: `Move` ABC, module-level registry, `available_moves` and `get_move` helpers.
-- `engine/moves/tax_the_hold.py`: full implementation of the Boss's signature Move - Charm-stat draw, Strong/Mixed/Bitter branches with resource effects and a Bitter Snag.
+- `engine/moves/tax_the_hold.py`: full implementation of the Boss's signature Move - stat-modified Fortune draw, Strong/Mixed/Bitter branches with resource effects and a Bitter Snag. (Phase 3.5 rekeyed this to Authority-on-Steward.)
 - `engine/moves/catch_your_breath.py`: universal meta-Move that reshuffles the deck for 2 Juice.
 - `engine/turn.py`: per-archetype action budgets, `end_turn` that ticks the turn counter and refills the player's actions.
 - `procgen/world_gen.py`: every faction gets a fresh `FortuneDeck` derived from a stable salt, so deck shuffles are part of the seed-deterministic world state.
@@ -65,6 +65,38 @@ Verification:
 - `tests/test_moves.py` (10 tests): Strong/Mixed/Bitter Tax effects, veto when People=0, Catch-requires-2-Juice, action-budget table, end-turn refills, archetype-specific Move availability.
 - 38/38 tests pass.
 - Manual play: 5 turns of taxation grew Barter from 4 to 38, Heat from 2 to 13, exhausted the deck (0 remaining, 30 in discard), and Catch your breath became available exactly when expected.
+
+---
+
+## Phase 3.5 — Personnel + Locations + Buildings + Dynamics *(complete)*
+
+**Goal:** Replace AW-flavored faction stats with a Grand Strategy substrate: named Officers + structural Locations + dynamic state that evolves each turn.
+
+Delivered:
+- `core/characters.py`: `Character` (Leader + 3 Officers per faction), `CharacterRole` enum, asymmetric 5-stat `STAT_SCHEMA` per ArchetypeClass (Territorial: Authority/Industry/Vigilance/Standing/Cunning; Mobile: Notoriety/Cohesion/Mobility/Standing/Cunning; Embedded: Influence/Network/Discretion/Conviction/Cunning), 0–100 stat scale with triangular-distribution `roll_character`, canonical officer `ROSTER` (3 named roles per archetype with a primary stat each).
+- `core/buildings.py`: `Building` dataclass with type/level/condition/assigned_officer, `BuildingType` enum (Granary/Garage/Drill Yard/Shrine/Workshop/Hidden Cell/Backroom/Tavern), `BUILDING_YIELDS` table, `BUILDING_KEEPER_ROLE` map, condition-scaled `yield_now()`.
+- `core/locations.py`: `LocationState` (population, discontent, authority, buildings, hosted_buildings).
+- `core/faction.py`: dropped `FactionStats`; added `leader: Character | None`, `officers: list[Character]`, `camp: LocationState | None` (Mobile-only). `leader_name` is now a `@property`.
+- `core/world.py`: added `locations: dict[(q, r), LocationState]`.
+- `engine/fortune.py`: added `stat_modifier(value: int) -> int` translating a 0–100 stat into the −1/0/+1 draw tilt at the 30/70 thresholds.
+- `engine/moves/base.py`: `Move.stat` is now `str | None`; added `acting_role` and helpers `acting_character`, `stat_value`, `draw_modifier`.
+- `engine/moves/tax_the_hold.py`: keys on the Steward's Authority; Strong/Mixed grant Authority XP; Bitter wounds the Steward.
+- `engine/upkeep.py`: end-turn dynamics — apply pending XP, drift idle stats toward 50, age characters, maintain buildings (yield + condition), Heat decay, location discontent drift.
+- `engine/turn.py`: `end_turn` runs Upkeep before refilling the player's actions.
+- `procgen/faction_gen.py`: rewrote roster generation around `_build_roster` (Leader + 3 officers per faction). `format_roster` prints the new shape.
+- `procgen/world_gen.py`: `_populate_locations` builds hex-bound LocationStates for Bosses, camps for Mobiles, and slots Embedded factions' signature Buildings into the right host's `hosted_buildings`.
+- `procgen/names.py`: added `officer_name(rng)`.
+- `scenes/world_view.py`: sidebar now shows the class-specific 5-stat line for the leader, an officer council list (role · name · primary stat), and a Buildings sub-panel per selected hex with condition % and keeper.
+- `docs/PERSONNEL.md` and `docs/LOCATIONS.md` document the model; `docs/MECHANICS.md` updated for the new stat system and Upkeep step.
+
+Verification:
+- `tests/test_characters.py` (9 tests): stat-schema correctness, every archetype has 3 officer roles, every primary stat is in its class's schema, stat values clamp to [10, 95], leader skews high in flagship, officer skews high in primary.
+- `tests/test_buildings.py` (5 tests): yield-at-full, yield scales with condition, yield zero below threshold, yield scales with level, multi-resource yield (Tavern).
+- `tests/test_upkeep.py` (10 tests): pending XP applied before drift, idle drift toward 50, characters age, Granary deposits Stock when keeper alive, Heat decays/floors, condition holds with keeper / decays without, Mobile camps tick, Embedded hosted buildings tick, upkeep emits log entries.
+- `tests/test_world_gen.py` extended with 3 new tests: every faction has leader + 3 officers, every Boss has a location with a Granary, every Mobile has a camp with one building, every Embedded has a hosted building.
+- `tests/test_moves.py` rewritten for the new stat shape; Strong Tax confirmed to deposit +2 Authority XP, Bitter Tax confirmed to lower Steward Authority by 3.
+- 70/70 tests pass.
+- Manual play: 5 turns of Tax the Hold on seed 42 grew Barter 4 → 28, Heat 1 → 10, Stock 3 → 9 (Granary at 100% kept yielding +2/turn), Steward Authority 37 → 48 (drift up due to Move XP); deck depleted exactly on schedule.
 
 ---
 

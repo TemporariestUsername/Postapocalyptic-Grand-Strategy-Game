@@ -43,23 +43,23 @@ The Maelstrom is *audible*. The world remains otherwise normal.
 
 The engine picks one of the following at random, weighted by what factions exist:
 
-- **Dreams.** Each named character with `Weird ≥ 1` writes one line of procedural dream-text into their faction's log. Mostly flavor; one Prophet/Whisper somewhere gets a free Insight 1 on a random rival.
+- **Dreams.** Each named Embedded character with `Conviction ≥ 40` writes one line of procedural dream-text into their faction's log. Mostly flavor; one Prophet/Whisper somewhere gets a free reveal of one fact about a random rival.
 - **Dead Birds.** All factions take Heat +1 (the wasteland is paying attention).
-- **Static.** All `Insight` Moves this turn resolve at -1 stat.
+- **Static.** All `Cunning`-keyed Moves this turn resolve at -1 stat (the Maelstrom clouds judgment).
 
 ### 50 — Surges
 
 The Maelstrom can touch the world.
 
-The engine picks a random named character anywhere on the map with `Weird ≥ 1` and **opens** them: their Weird increases by +1 permanently and their Grit drops by -1. The character's behavior shifts — their AI faction's Move priors update toward Maelstrom-aligned Moves (Open to the Maelstrom, Walk in Dreams).
+The engine picks a random named character anywhere on the map and **opens** them. Embedded characters gain +5 Conviction permanently; Territorial/Mobile characters gain +5 Cunning but lose -5 Standing (they read as *off* to anyone watching). The character's behavior shifts — their AI faction's Move priors update toward Maelstrom-aligned Moves (Open to the Maelstrom, Walk in Dreams).
 
-If no character with `Weird ≥ 1` exists, the engine waits one turn and tries again.
+Preference is given to characters who already trend high in Maelstrom-adjacent stats (Conviction for Embedded, Cunning for others).
 
 ### 75 — Possessions
 
 The Maelstrom acts directly.
 
-The engine picks a random named character with `Weird ≥ 3` (any faction, including the player's leader). On a procedural roll:
+The engine picks a random named character with `Conviction ≥ 70` (Embedded) or who has been previously *opened* by a Surge (any class). On a procedural roll:
 
 - 25%: the character is **fully possessed**. Their faction's AI is replaced for `1d4 + 1` turns with a **Maelstrom-aligned hostile AI** that picks the worst Move for their own faction each turn.
 - 50%: the character is **whisper-touched**. They behave normally but pull `1d2` Bitter cards into their Fortune Deck.
@@ -85,8 +85,8 @@ The Maelstrom is not pure threat. It is *power available for a price*:
 |---|---|
 | **Prophet** | `Open to the Maelstrom` (gain Secrets, raise meter); core to the archetype. |
 | **Whisper** | `Walk in Dreams`, `Plant a Suggestion`, `Brainwipe`; their psychic abilities literally run on Maelstrom. |
-| **Tinker** | `Build Something Weird` rolls on a Maelstrom-flavored artifact table; high Weird helps. |
-| **Boss** | Touches the Maelstrom only by accident (named character with rolled Weird). Most Bosses fear it. |
+| **Tinker** | `Build Something Weird` rolls on a Maelstrom-flavored artifact table; high Network and Conviction help. |
+| **Boss** | Touches the Maelstrom only by accident (a character of the hold who has been *opened* by a Surge). Most Bosses fear it. |
 | **Mobile** | Almost never. The Maelstrom is for people who sit still and listen. |
 
 The asymmetry is the point. Prophets and Whispers play a *fundamentally different macro game* — they're racing the meter both ways.

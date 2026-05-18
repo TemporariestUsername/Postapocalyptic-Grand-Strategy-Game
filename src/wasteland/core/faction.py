@@ -1,8 +1,13 @@
 """Faction archetypes and the Faction dataclass.
 
-Asymmetry lives here. Every archetype belongs to one of three classes - Territorial,
-Mobile, or Embedded - and a faction's class determines what kind of game it plays:
-who it can target, what resources it spends, what defeats it.
+Asymmetry lives here. Every archetype belongs to one of three classes -
+Territorial, Mobile, or Embedded - and a faction's class determines what kind
+of game it plays: who it can target, what resources it spends, what defeats
+it.
+
+A faction is a Leader + 3 Officers + a resource bag, plus class-specific
+geographic state. Stats live on the Characters (see core/characters.py),
+not the Faction.
 """
 
 from __future__ import annotations
@@ -15,6 +20,8 @@ from .hex import Hex
 
 if TYPE_CHECKING:
     from ..engine.fortune import FortuneDeck
+    from .characters import Character
+    from .locations import LocationState
 
 
 class ArchetypeClass(str, Enum):
@@ -66,22 +73,12 @@ ARCHETYPE_PITCH: dict[Archetype, str] = {
 
 
 @dataclass
-class FactionStats:
-    """The five faction-scale stats. Reflavored from AW's Cool/Hard/Hot/Sharp/Weird."""
-    grit: int = 0       # endurance under pressure
-    menace: int = 0     # capacity for violence
-    charm: int = 0      # ability to bargain
-    insight: int = 0    # information and foresight
-    weird: int = 0      # connection to the Maelstrom
-
-
-@dataclass
 class Faction:
-    """A faction is its leader plus its standing. Resource bag is class-dependent."""
+    """A faction is its Leader + Officers + standing. Resource bag is class-dependent."""
     archetype: Archetype
     name: str
-    leader_name: str
-    stats: FactionStats
+    leader: "Character | None" = None
+    officers: list["Character"] = field(default_factory=list)
     # Resource values keyed by Resource.value. Not strongly typed here because
     # different archetypes hold different keys.
     resources: dict[str, int] = field(default_factory=dict)
@@ -104,6 +101,16 @@ class Faction:
     # demo factions that never enter the engine.
     fortune: "FortuneDeck" = field(default=None)  # type: ignore[assignment]
 
+    # Mobile factions carry their LocationState (a `camp`) on the faction itself
+    # because it moves with them. Territorial factions' LocationState lives in
+    # world.locations[hex]; Embedded factions don't own one (their Buildings
+    # live in the host's hosted_buildings list).
+    camp: "LocationState | None" = None
+
     @property
     def archetype_class(self) -> ArchetypeClass:
         return ARCHETYPE_CLASS[self.archetype]
+
+    @property
+    def leader_name(self) -> str:
+        return self.leader.name if self.leader is not None else "(unnamed)"

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 import pygame
 
 from .. import config
+from ..core.characters import STAT_ABBREV, STAT_SCHEMA
 from ..core.faction import (
     ARCHETYPE_CLASS,
     Archetype,
@@ -486,12 +487,30 @@ class WorldViewScene(Scene):
         draw_text(surface, f"{f.archetype.value}   led by {f.leader_name}",
                   (x, y), size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM)
         y += 18
-        s = f.stats
-        stats_line = (f"G{s.grit:+d}  M{s.menace:+d}  C{s.charm:+d}  "
-                      f"I{s.insight:+d}  W{s.weird:+d}")
-        draw_text(surface, stats_line, (x, y),
-                  size=config.FONT_SIZE_SMALL, color=config.COLOR_FG)
-        y += 18
+        # Leader stat readout - class-specific 5-stat line.
+        if f.leader is not None:
+            schema = STAT_SCHEMA[ARCHETYPE_CLASS[f.archetype]]
+            stats_line = "  ".join(
+                f"{STAT_ABBREV[s]} {f.leader.stats.get(s, 0):>2d}" for s in schema
+            )
+            draw_text(surface, stats_line, (x, y),
+                      size=config.FONT_SIZE_SMALL, color=config.COLOR_FG)
+            y += 18
+        # Officer council - one line each.
+        for o in f.officers:
+            primary_stat = next(
+                (stat for stat, val in sorted(o.stats.items(), key=lambda kv: -kv[1])),
+                None,
+            )
+            primary_val = o.stats.get(primary_stat, 0) if primary_stat else 0
+            line = (
+                f"  {o.role.value:11s} {o.name}  "
+                f"{STAT_ABBREV.get(primary_stat, '?')} {primary_val}"
+            )
+            draw_text(surface, line, (x, y),
+                      size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM)
+            y += 14
+        y += 4
         # Show one or two relevant resources only; the full bag is overwhelming.
         bag = f.resources
         key_resources = self._key_resources_for(f)
@@ -529,6 +548,27 @@ class WorldViewScene(Scene):
             for idx in occupants:
                 f = self.world.factions[idx]
                 y = self._draw_faction_inline(surface, x, y, f)
+
+        # Buildings on this location, if any (Boss-owned hexes carry LocationState).
+        loc = self.world.locations.get((tile.q, tile.r))
+        if loc is not None and (loc.buildings or loc.hosted_buildings):
+            draw_text(surface, "Buildings:", (x, y),
+                      size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM)
+            y += 18
+            for b in loc.buildings:
+                line = f"  {b.type.value} L{b.level}  cond {b.condition}%"
+                if b.assigned_officer:
+                    line += f"  · {b.assigned_officer}"
+                draw_text(surface, line, (x, y),
+                          size=config.FONT_SIZE_SMALL, color=config.COLOR_FG)
+                y += 14
+            for b in loc.hosted_buildings:
+                owner = self.world.factions[b.owner_faction_idx]
+                line = f"  {b.type.value} L{b.level}  cond {b.condition}%  (hosted: {owner.name})"
+                draw_text(surface, line, (x, y),
+                          size=config.FONT_SIZE_SMALL, color=(170, 200, 230))
+                y += 14
+            y += 4
 
         # Find the Boss at this hex (if any) to look up its hosted embeddeds.
         boss_idx = next(
