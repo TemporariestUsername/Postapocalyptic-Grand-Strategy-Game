@@ -35,12 +35,22 @@ def end_turn(world: World, rng: random.Random) -> list[LogEntry]:
 
     Order:
         1. Bump the turn counter and emit the Season header.
-        2. Run Upkeep (character drift, building yields, Heat decay, locations).
-        3. Refill the player's action budget.
+        2. Run Upkeep (character drift, building yields, Heat decay, economy,
+           the Maelstrom timer).
+        3. Advance threat clocks; fire any that fill.
+        4. Check endgame; if the run is over, record the outcome and stop -
+           no action refill for a finished game.
+        5. Otherwise, refill the player's action budget.
 
-    AI faction actions and threat-clock ticks land in Phase 5.
+    Rival AI actions land in Phase 5; until then the pre-seeded fronts (step 3)
+    are how the world acts.
     """
+    from .endgame import check_endgame
+    from .threats import advance_threats
     from .upkeep import run_upkeep
+
+    if world.is_over:
+        return []
 
     world.turn += 1
     player = world.player
@@ -48,6 +58,18 @@ def end_turn(world: World, rng: random.Random) -> list[LogEntry]:
         LogEntry(turn=world.turn, kind=LogKind.SYSTEM, text=f"--- Season {world.turn} ---"),
     ]
     entries.extend(run_upkeep(world, rng))
+    entries.extend(advance_threats(world, rng))
+
+    outcome = check_endgame(world)
+    if outcome is not None:
+        world.outcome = outcome
+        entries.append(LogEntry(
+            turn=world.turn, kind=LogKind.SNAG,
+            text=f"It ends. {outcome.reason} (Legacy {outcome.legacy}.)",
+        ))
+        world.actions_left = 0
+        return entries
+
     if player is not None:
         world.actions_left = action_budget(player)
     return entries

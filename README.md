@@ -14,7 +14,7 @@ A turn-based, post-apocalyptic **grand strategy game** inspired by Vincent Baker
 
 ## What's in the box right now
 
-The repo is at the end of **Phase 3.5: Personnel, Locations, Buildings, Dynamics**. What that means concretely:
+The repo is at the end of **Phase 3.75: A World That Pushes Back** (built on the Phase 3.5 personnel/locations layer). What that means concretely:
 
 - **Procedural world generation.** A 24×16 pointy-top hex map with fertile pockets, irradiated zones, deep wilds, and Dijkstra-traced roads between fertile centers. 4–7 Bosses on fertile hexes, 1–3 mobile gangs in the wastes, 0–3 embedded factions per hold. Determinism: the same seed produces a byte-identical world.
 - **Eight playable archetypes.** Pick any from the title screen → archetype select. The choice changes where you start, what resources you track, which Moves you have, and which officers run your faction.
@@ -25,16 +25,18 @@ The repo is at the end of **Phase 3.5: Personnel, Locations, Buildings, Dynamics
 - **Dynamic stats.** Successful Moves deposit XP into the acting officer's primary stat; idle stats drift toward 50 each turn. Specialists (≥ 70) bend the Fortune Card draw; the weak (≤ 30) bend it the wrong way.
 - **Locations + Buildings.** Bosses own hex-bound LocationStates; Mobile gangs carry a *camp* that moves with them; Embedded factions own Buildings *inside* their host's hold. Each archetype has one signature starting building (Granary, Garage, Drill Yard, Shrine, Workshop, Hidden Cell, Backroom, Tavern) yielding resources scaled by condition.
 - **Resolution mechanic — Fortune Cards.** A 12-card per-faction deck (3 Strong / 6 Mixed / 3 Bitter). Each Move declares the stat and officer it keys on; high stats let you keep the better of two cards, low stats keep the worse. Bitter outcomes carry a procedural Snag.
-- **One full Move playable end-to-end.** The Boss's **Tax the Hold** is fully wired: action cost, veto reasons, Strong/Mixed/Bitter branches with Authority XP for the Steward, an event-log entry. The universal **Catch your breath** meta-Move reshuffles your Fortune Deck for 2 Juice.
-- **Upkeep step.** End-turn dynamics: pending XP applied, idle stats drift, buildings tick (yield + condition), Heat decays, discontent drifts in Boss holds.
+- **A real Boss strategy loop.** Six Moves competing for a 3-action season: **Tax the Hold** (money, but raises Heat/discontent), **Work the Fields** (food), **Build Walls** (defense), **Make an Example** (order), **Muster the Watch** (readiness + stall a front), and the universal **Catch your breath** (reshuffle the deck). Each is fully wired: action cost, veto reasons, Strong/Mixed/Bitter branches, officer XP, log lines.
+- **An economy with feedback.** People eat Stock each season; a fed surplus grows your population (a bigger tax base that eats more); scarcity starves it and breeds discontent; a discontented hold revolts. Feeding vs. taxing vs. defending vs. policing is the core tension.
+- **Threats that advance and fire.** Every seeded rival "front" ticks each season and, when it fills, hits you with a kind-specific consequence — raids burn Stock (Walls soak them), marches grind Walls then People, undermining saps Authority. The `INCOMING` panel shows the clocks bearing down on you. Until the AI lands, these fronts are how the world acts.
+- **Stakes.** Archetype-specific defeat (your hold empties or revolts; your gang scatters; your cover is blown), a slow Maelstrom doom timer, and a **Legacy score** so an open-ended run has a number to chase. A full-screen epitaph when it ends.
 - **Deterministic CLI demo.** `python -m wasteland --roster --seed 42` prints a full procedural faction roster (leaders, officers with their stats, hold names, grudges) to stdout for the seed and exits — no window needed.
 
 What's **not** in yet — see [`docs/ROADMAP.md`](docs/ROADMAP.md):
 
-- The Move catalogue beyond Tax the Hold and Catch your breath (Phase 4).
-- Threat clocks ticking (Phase 4).
-- AI for rival factions (Phase 5).
-- The Maelstrom subsystem as code (Phase 4).
+- The Move catalogue for the Mobile and Embedded archetypes (Phase 4). The Boss loop is complete; other archetypes still have only Catch your breath.
+- Per-turn economies for Mobile/Embedded to match the Territorial loop (Phase 4).
+- The Maelstrom *threshold events* — the doom timer ticks, but omens/surges/possessions aren't wired yet (Phase 4).
+- AI for rival factions — they sit on the map; their threat-fronts act, but the factions don't take Moves yet (Phase 5).
 
 ---
 
@@ -131,26 +133,27 @@ pytest tests/test_characters.py     # one file
 pytest -q -k upkeep                 # by keyword
 ```
 
-Currently **70 tests pass.**
+Currently **102 tests pass.**
 
 ---
 
-## How to play (Phase 3.5 build)
+## How to play
+
+Play a **Boss** for the full loop — the other archetypes are generated and playable, but their Move sets land in Phase 4.
 
 1. **Title screen.** Click **New Game**. (Or **Quit**.)
-2. **Archetype select.** Pick any of the eight archetypes. Each shows a one-line pitch.
-3. **World view.** You'll see the generated hex map. Your faction's marker has an accent ring. The sidebar shows:
-   - Your faction name and the leader's stats (one line, class-specific abbreviations: `Aut 79  Ind 62  Vig 47  Std 52  Cun 63`).
-   - Your council of 3 Officers with their primary stat.
-   - Your action budget (3 for a Boss, 2 for everyone else).
-   - Your Fortune Deck composition (`3S 6M 3B  (12 left)`).
-   - Move buttons for your archetype. Disabled buttons show their veto reason.
-   - An event log at the bottom.
-4. **Click a hex** to inspect it. Boss-owned hexes show their Buildings (`granary L1  cond 100%  · Plonox`) and any hosted Buildings from Embedded factions inside the hold.
-5. **Click a Move button** (Boss-only **Tax the Hold**, or the universal **Catch your breath**) to spend an action. The log fills with the outcome.
-6. **Click End Turn** to refill your actions and run Upkeep. Stats drift, building yields accrue, Heat decays.
+2. **Archetype select.** Pick **Boss** for the complete experience. Each archetype shows a one-line pitch.
+3. **World view.** You'll see the generated hex map; your hold has an accent ring. The sidebar shows your leader's stats, your 3-Officer council, your **hold order %**, your resources, an **INCOMING** panel of fronts bearing down on you (with progress bars), your action budget and Fortune Deck, your Move buttons, and the event log.
+4. **Manage the season.** You get 3 actions. The tension:
+   - **Work the Fields** so People don't starve — and bank a surplus to *grow* (more People = more tax, but more mouths).
+   - **Tax the Hold** for Barter — but it raises Heat and stirs discontent.
+   - **Build Walls** before a martial front fills — Walls soak raids and marches.
+   - **Make an Example** to cut Heat and quell discontent before the hold revolts.
+   - **Muster the Watch** to bank Ammo and shove the worst **INCOMING** front back a couple of seasons.
+5. **Click End Turn.** Upkeep runs (the hold eats, stats drift, buildings yield), fronts advance and may fire, the Maelstrom creeps up. Watch the log.
+6. **Endure.** Mismanage food, order, or defense and the run ends — your hold empties, revolts, or the Maelstrom takes everything. You're playing for a high **Legacy** score before that day comes.
 
-There are no AI rivals yet — they sit on the map and don't act. The point of Phase 3.5 is the substrate; Phase 4 brings the Move catalogue and AI follows in Phase 5.
+Rival factions don't take Moves yet (Phase 5) — but their pre-seeded **fronts act on their own**, so the world is already dangerous.
 
 ---
 
@@ -188,15 +191,17 @@ Postapocalyptic-Grand-Strategy-Game/
 │   │   ├── map_gen.py              terrain, irradiated zones, roads, scarcity
 │   │   ├── faction_gen.py          Bosses → Mobiles → Embedded; demo roster CLI
 │   │   ├── relationships.py        sentiment graph
-│   │   ├── threats.py              per-faction threat clocks
+│   │   ├── threats.py              seeded fronts (Threat, ThreatKind)
 │   │   └── names.py                phonotactic name generators
 │   ├── engine/
 │   │   ├── fortune.py              FortuneDeck + stat_modifier(v)
-│   │   ├── moves/                  Move ABC + Tax the Hold + Catch your breath
+│   │   ├── moves/                  Move ABC + the six Boss Moves + Catch your breath
 │   │   ├── snags.py                Bitter-outcome complications, class-filtered
 │   │   ├── log.py                  LogEntry / LogKind
-│   │   ├── turn.py                 end_turn + action budgets
-│   │   └── upkeep.py               XP + stat drift + building yields + Heat decay
+│   │   ├── turn.py                 end_turn: upkeep → threats → endgame → refill
+│   │   ├── upkeep.py               XP, stat drift, yields, the feed/starve/grow economy
+│   │   ├── threats.py              advance_threats: tick fronts, fire consequences
+│   │   └── endgame.py              defeat checks + Legacy score
 │   ├── scenes/
 │   │   ├── title.py                title screen
 │   │   ├── archetype_select.py     pick your power

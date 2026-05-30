@@ -32,6 +32,7 @@ from ..core.faction import (
 from ..core.hex import Hex, SQRT3, corners, to_pixel
 from ..core.world import World
 from ..engine.moves import Move, available_moves
+from ..engine.threats import player_threats
 from ..engine.turn import end_turn
 from ..procgen.map_gen import (
     HexMap,
@@ -205,6 +206,8 @@ class WorldViewScene(Scene):
                 self._end_turn_btn.hovered = self._end_turn_btn.rect.collidepoint(event.pos)
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.world.is_over:
+                return  # the game is decided; only Esc does anything now
             mx, my = event.pos
             if mx >= _MAP_AREA_W:
                 self._handle_sidebar_click((mx, my))
@@ -227,6 +230,8 @@ class WorldViewScene(Scene):
     # --------------------------------------------------------- resolution
 
     def _perform_move(self, move: Move) -> None:
+        if self.world.is_over:
+            return
         player = self.world.player
         if player is None:
             return
@@ -240,6 +245,8 @@ class WorldViewScene(Scene):
         self.world.event_log.extend(result.entries)
 
     def _perform_end_turn(self) -> None:
+        if self.world.is_over:
+            return
         from ..engine.turn import end_turn as _end_turn
         entries = _end_turn(self.world, self._rng)
         self.world.event_log.extend(entries)
@@ -255,6 +262,8 @@ class WorldViewScene(Scene):
         surface.fill(config.COLOR_BG)
         self._draw_map(surface)
         self._draw_sidebar(surface)
+        if self.world.is_over:
+            self._draw_game_over(surface)
 
     def _draw_map(self, surface: pygame.Surface) -> None:
         origin = (self.camera.origin_x, self.camera.origin_y)
@@ -352,6 +361,7 @@ class WorldViewScene(Scene):
         if player is not None:
             y = self._draw_faction_block(surface, x, y, player, header="YOU")
             y += 4
+            y = self._draw_incoming(surface, x, y)
 
         # --- moves panel
         if player is not None:
@@ -372,6 +382,61 @@ class WorldViewScene(Scene):
 
         # --- End Turn button + Esc footer
         self._draw_end_turn(surface, rect, end_turn_height)
+
+    def _draw_incoming(self, surface: pygame.Surface, x: int, y: int) -> int:
+        """List the fronts aimed at the player, worst first, with a progress bar."""
+        fronts = [t for t in player_threats(self.world) if not t.clock.is_full]
+        if not fronts:
+            return y
+        draw_text(surface, "INCOMING", (x, y),
+                  size=config.FONT_SIZE_SMALL, color=config.COLOR_ACCENT)
+        y += 16
+        small = font(config.FONT_SIZE_SMALL)
+        for t in fronts[:3]:
+            seg, fil = t.clock.segments, t.clock.filled
+            remaining = t.clock.remaining
+            # Urgency colors the line: next-season hits glow, distant ones dim.
+            if remaining <= 1:
+                color = config.COLOR_ACCENT
+            elif remaining <= 2:
+                color = config.COLOR_BONE
+            else:
+                color = config.COLOR_DIM
+            label = t.clock.label
+            if len(label) > 30:
+                label = label[:29] + "…"
+            surface.blit(small.render(label, True, color), (x, y))
+            y += 13
+            bar = "■" * fil + "□" * (seg - fil)
+            surface.blit(small.render(f"  {bar}  {fil}/{seg}", True, color), (x, y))
+            y += 15
+        return y + 4
+
+    def _draw_game_over(self, surface: pygame.Surface) -> None:
+        """Full-window scrim + the run's epitaph and Legacy score."""
+        outcome = self.world.outcome
+        if outcome is None:
+            return
+        scrim = pygame.Surface((config.WINDOW_WIDTH, config.WINDOW_HEIGHT), pygame.SRCALPHA)
+        scrim.fill((8, 7, 6, 214))
+        surface.blit(scrim, (0, 0))
+
+        cx = config.WINDOW_WIDTH // 2
+        cy = config.WINDOW_HEIGHT // 2
+        draw_text(surface, "DEFEAT", (cx, cy - 90),
+                  size=config.FONT_SIZE_TITLE, color=config.COLOR_ACCENT, center=True)
+        # Reason, wrapped to a comfortable measure.
+        body = font(config.FONT_SIZE_BODY)
+        lines = _wrap(outcome.reason, body, 640)
+        ly = cy - 26
+        for line in lines:
+            draw_text(surface, line, (cx, ly),
+                      size=config.FONT_SIZE_BODY, color=config.COLOR_FG, center=True)
+            ly += 26
+        draw_text(surface, f"Legacy {outcome.legacy}  ·  endured {outcome.turn} seasons",
+                  (cx, ly + 14), size=config.FONT_SIZE_HEADING, color=config.COLOR_BONE, center=True)
+        draw_text(surface, "Esc: return to the title screen", (cx, ly + 56),
+                  size=config.FONT_SIZE_SMALL, color=config.COLOR_DIM, center=True)
 
     def _draw_moves_panel(self, surface: pygame.Surface, x: int, y: int, player: Faction) -> int:
         budget_color = config.COLOR_ACCENT if self.world.actions_left > 0 else config.COLOR_DIM
@@ -516,7 +581,21 @@ class WorldViewScene(Scene):
         key_resources = self._key_resources_for(f)
         line = "   ".join(f"{k}: {bag.get(k, 0)}" for k in key_resources)
         draw_text(surface, line, (x, y), size=config.FONT_SIZE_SMALL, color=config.COLOR_FG)
-        y += 22
+        y += 18
+        # Hold order (Territorial only): the standing health of the settlement.
+        loc = self.world.location_for(f)
+        if loc is not None and f.archetype_class is ArchetypeClass.TERRITORIAL:
+            order = 100 - loc.discontent
+            if loc.discontent < 30:
+                mood, color = "calm", config.COLOR_DIM
+            elif loc.discontent < 60:
+                mood, color = "tense", config.COLOR_FG
+            else:
+                mood, color = "unrest", config.COLOR_ACCENT
+            draw_text(surface, f"order {order}%  ({mood})", (x, y),
+                      size=config.FONT_SIZE_SMALL, color=color)
+            y += 18
+        y += 4
         return y
 
     def _key_resources_for(self, f: Faction) -> list[str]:

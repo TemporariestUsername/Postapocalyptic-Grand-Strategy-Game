@@ -100,19 +100,35 @@ Verification:
 
 ---
 
-## Phase 4 — All Moves, Per Archetype
+## Phase 3.75 — A World That Pushes Back *(complete)*
 
-**Goal:** Every archetype's full Move list, playable.
+**Goal:** Turn the inert demo into a strategic simulation: the world advances and bites on its own, the player has real decisions, and runs can end.
 
-Deliverables:
-- Every Move from `FACTIONS.md` has a dispatch function and a UI button.
-- Threat clocks tick each turn.
-- Defeat checks run at end of turn.
-- The Maelstrom subsystem from `MAELSTROM.md`, with all four thresholds.
+Delivered:
+- `engine/upkeep.py`: a real Territorial economy. People eat `ceil(People/2)` Stock each season; surplus + calm grows population; scarcity starves it and spikes discontent; discontent ≥ 60 bleeds People/Authority; discontent 100 revolts. A Maelstrom doom timer rises every third season.
+- `engine/threats.py`: `advance_threats` ticks every seeded front each season and **fires** kind-specific consequences when one fills (raids soak on Walls then burn Stock; marches grind Walls then People; undermining saps Authority; extortion bleeds Barter; etc.), then resets the front. `ThreatKind` added to `procgen/threats.py`. Pre-seeded fronts are how the world acts until the Phase 5 AI lands.
+- `engine/endgame.py`: archetype-specific defeat checks (hold empties / revolts; gang scatters; embedded exposed or hostless) plus the universal Maelstrom cap, and a `legacy_score`. `World.outcome` records the end; `end_turn` stops cleanly when set.
+- Four new Boss Moves (`engine/moves/`): **Work the Fields** (Stock/food), **Build Walls** (defense that soaks martial fronts), **Make an Example** (cuts Heat + discontent), **Muster the Watch** (Ammo + stalls the worst incoming front). With Tax the Hold and Catch your breath, the Boss now has a genuine 3-action tradeoff each season.
+- `scenes/world_view.py`: an `INCOMING` panel listing fronts aimed at the player with progress bars, a hold-`order %` readout, input gating once the game is over, and a full-screen game-over overlay with the run's epitaph and Legacy score.
 
 Verification:
-- Player can play a full game from start to defeat, with at least 3 of the archetypes.
-- A run that ends has a Legacy score calculated.
+- `tests/test_threats_engine.py` (8), `tests/test_endgame.py` (9), economy tests in `tests/test_upkeep.py` (+6), new-Move tests in `tests/test_moves.py` (+9). **102/102 tests pass.**
+- Scripted playthroughs (seed 7): feed-and-fortify play grows a hold 4→11 People over 13 seasons and survives; greedy tax-only spirals on Heat and depopulates into a scored defeat by season 9.
+
+---
+
+## Phase 4 — Remaining Archetype Moves + the Maelstrom Subsystem
+
+**Goal:** Every archetype's full Move list playable, and the Maelstrom acting.
+
+Deliverables:
+- Every Move from `FACTIONS.md` (Mobile + Embedded sets) has a dispatch function and a UI button.
+- Mobile and Embedded per-turn economies (Gas drain, Cover/Heat dynamics) to match the Territorial loop already in `engine/upkeep.py`.
+- The Maelstrom subsystem from `MAELSTROM.md`, with all four threshold events (the doom timer already ticks; the threshold *events* are what's left).
+
+Verification:
+- Player can play a full game from start to defeat with at least 3 of the archetypes (Boss is already there).
+- Threat fog-of-war keyed on Cunning for distant fronts.
 
 ---
 

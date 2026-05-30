@@ -5,11 +5,30 @@ from __future__ import annotations
 import random
 
 from wasteland.core.characters import CharacterRole
+from wasteland.core.clock import Clock
 from wasteland.core.faction import Archetype, Faction
 from wasteland.engine.fortune import FortuneDeck, Outcome
-from wasteland.engine.moves import TaxTheHold, CatchYourBreath, available_moves
+from wasteland.engine.moves import (
+    BuildWalls,
+    CatchYourBreath,
+    MakeAnExample,
+    MusterTheWatch,
+    TaxTheHold,
+    WorkTheFields,
+    available_moves,
+)
 from wasteland.engine.turn import action_budget, end_turn
+from wasteland.procgen.threats import Threat, ThreatKind
 from wasteland.procgen.world_gen import generate_world
+
+
+def _neutralize(p, stat: str) -> None:
+    """Set leader + all officers to a neutral stat so the draw is a single card."""
+    if p.leader is not None and stat in p.leader.stats:
+        p.leader.stats[stat] = 50
+    for o in p.officers:
+        if stat in o.stats:
+            o.stats[stat] = 50
 
 
 def _force_top_card(deck: FortuneDeck, outcome: Outcome) -> None:
@@ -159,3 +178,97 @@ def test_available_moves_for_non_boss_excludes_tax():
     assert "Tax the Hold" not in names
     # Catch your breath is universal, so it should be present.
     assert "Catch your breath" in names
+
+
+# --- new Boss Moves -------------------------------------------------------
+
+def test_boss_has_full_move_loop():
+    w, p = _player_world()
+    names = {m.name for m in available_moves(p)}
+    for expected in ("Tax the Hold", "Work the Fields", "Build Walls",
+                     "Make an Example", "Muster the Watch", "Catch your breath"):
+        assert expected in names
+
+
+def test_work_the_fields_adds_stock():
+    w, p = _player_world()
+    _neutralize(p, "industry")
+    _force_top_card(p.fortune, Outcome.STRONG)
+    before = p.resources.get("stock", 0)
+    WorkTheFields.resolve(w, p, random.Random(0))
+    assert p.resources["stock"] == before + 3
+
+
+def test_work_the_fields_blocked_without_people():
+    w, p = _player_world()
+    p.resources["people"] = 0
+    allowed, reason = WorkTheFields.can_attempt(w, p)
+    assert not allowed
+    assert "People" in reason
+
+
+def test_build_walls_trades_stock_for_walls():
+    w, p = _player_world()
+    _neutralize(p, "industry")
+    p.resources["stock"] = 5
+    before_walls = p.resources.get("walls", 0)
+    _force_top_card(p.fortune, Outcome.STRONG)
+    BuildWalls.resolve(w, p, random.Random(0))
+    assert p.resources["walls"] == before_walls + 2
+    assert p.resources["stock"] == 4   # -1 materials
+
+
+def test_build_walls_blocked_without_stock():
+    w, p = _player_world()
+    p.resources["stock"] = 0
+    allowed, reason = BuildWalls.can_attempt(w, p)
+    assert not allowed
+    assert "Stock" in reason
+
+
+def test_make_an_example_cuts_heat_and_discontent():
+    w, p = _player_world()
+    _neutralize(p, "vigilance")
+    loc = w.location_for(p)
+    p.resources["heat"] = 6
+    loc.discontent = 40
+    _force_top_card(p.fortune, Outcome.STRONG)
+    MakeAnExample.resolve(w, p, random.Random(0))
+    assert p.resources["heat"] == 3      # -3
+    assert loc.discontent == 20          # -20
+
+
+def test_make_an_example_blocked_when_calm():
+    w, p = _player_world()
+    loc = w.location_for(p)
+    p.resources["heat"] = 0
+    loc.discontent = 0
+    allowed, reason = MakeAnExample.can_attempt(w, p)
+    assert not allowed
+    assert "calm" in reason.lower()
+
+
+def test_muster_the_watch_stalls_worst_front():
+    w, p = _player_world()
+    _neutralize(p, "vigilance")
+    pidx = w.player_idx
+    other = next(i for i in range(len(w.factions)) if i != pidx)
+    w.threats.threats = [
+        Threat(other, pidx, Clock("incoming army", segments=8, filled=5), ThreatKind.MARCH),
+    ]
+    _force_top_card(p.fortune, Outcome.STRONG)
+    before_ammo = p.resources.get("ammo", 0)
+    MusterTheWatch.resolve(w, p, random.Random(0))
+    assert p.resources["ammo"] == before_ammo + 2
+    assert w.threats.threats[0].clock.filled == 3   # 5 - 2 stall
+
+
+def test_muster_the_watch_works_with_no_threats():
+    w, p = _player_world()
+    _neutralize(p, "vigilance")
+    w.threats.threats = []
+    _force_top_card(p.fortune, Outcome.STRONG)
+    before_ammo = p.resources.get("ammo", 0)
+    result = MusterTheWatch.resolve(w, p, random.Random(0))
+    assert result.outcome is Outcome.STRONG
+    assert p.resources["ammo"] == before_ammo + 2  # still gains Ammo, just no stall

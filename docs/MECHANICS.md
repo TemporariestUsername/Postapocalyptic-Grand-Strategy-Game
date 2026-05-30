@@ -65,22 +65,38 @@ Phase 2 implements these procedurally with a weighted draw.
 
 A clock is a tuple `(label: str, segments: int, filled: int)`. See `core/clock.py` for the primitive.
 
-### Lifecycle
-- **Created** by a faction Move, a procgen seed, or a fired threat.
-- **Advanced** by Moves, by passive turn ticks, or by other clocks firing.
-- **Trigger** when `filled == segments`. The trigger is a callable on the world state.
-- **Visible to the player** only if the player's leader (or a relevant officer) has Cunning ≥ 60 on the faction that owns the clock. Otherwise the clock exists but the player sees `???`.
+### Lifecycle (implemented in `engine/threats.py`)
+- **Created** at procgen (`procgen/threats.py` seeds 1–2 per non-player faction) or, later, by faction Moves.
+- **Advanced** one segment each season by `advance_threats`, called from `end_turn`.
+- **Fires** when it fills: a kind-specific consequence hits the target faction (see below), it is logged, and the clock **resets** so the rivalry keeps simmering. Fronts are ongoing pressure, not one-shots.
+- **Visible to the player**: fronts aimed at the player are always shown in the world-view `INCOMING` panel (they are existential). Fronts between two rivals surface in the log only when they fire against a public hold. Cunning-gated fog for *distant* fronts is reserved for a later pass.
 
-### Standard clock sizes
-- **4 segments** — short threats (one season to one year).
-- **6 segments** — medium projects (a coup, a schism).
-- **8 segments** — long projects (Maelstrom thresholds, succession wars).
+### Threat kinds and their consequences
+
+Each front carries a `ThreatKind` that decides what it does when it fires. Consequences read off the *target's* own resource set, so a front never takes Riders from a Boss.
+
+| Kind | Fires on | Effect |
+|---|---|---|
+| **Raid** | Mobile → Territorial | Walls soak it (−1 Wall, −1 Stock) if present; otherwise −2 Stock, −1 Barter, +1 Heat. |
+| **March** | Territorial → Territorial | −2 Walls; once Walls are gone, −1 People. |
+| **Extort** | Mobile → Territorial | −2 Barter. |
+| **Hunt** | Territorial → Mobile | −1 Riders, −1 Gas. |
+| **Schism** | Embedded → any | −2 Followers. |
+| **Undermine** | Embedded → Territorial | −10 Authority, +10 discontent, −1 People. |
+| **Expose** | Embedded → Embedded | −2 Cover, +1 Heat. |
+| **Debts** | any → any | −1 Barter, −1 Juice. |
+
+**Walls are the load-bearing defense:** they absorb Raid and March hits, so banking Walls ahead of an incoming martial clock is how a Boss survives a neighbor's army.
 
 ### Stalling
-The player can stall a known clock with archetype-specific Moves:
-- A Boss can **Make an Example** to stall a Heat clock by 1.
-- A Roadlord can **Demand Sanctuary** to stall a starvation clock.
-- An Embedded faction can **Wire the Hold** / **Brainwipe** / **Throw a Night** to stall an eviction clock.
+The player can buy time against a known front:
+- A Boss can **Muster the Watch** to push the most-advanced incoming clock back by 1–2 segments (and bank Ammo).
+- Future archetype Moves (Demand Sanctuary, Wire the Hold, Brainwipe, Throw a Night) will stall their own class's fronts.
+
+### Standard clock sizes
+- **4 segments** — short threats (raids, exposure).
+- **6 segments** — medium projects (extortion, a schism, a hunt).
+- **8 segments** — long projects (a march, undermining a hold).
 
 ---
 
@@ -96,14 +112,18 @@ The player can stall a known clock with archetype-specific Moves:
 
 ### Class-specific resources
 
-**Territorial (Boss):**
+**Territorial (Boss)** — the Stock↔People loop is the strategic core (`engine/upkeep.py`):
 
 | Resource | Generation | Drain |
 |---|---|---|
-| **Stock** | +1 per People per turn at Upkeep | -1 per People per turn at Upkeep |
-| **People** | Slow natural growth (+1 per 3 turns if Stock surplus) | Conscript, raids, plague events |
-| **Ammo** | Earned via Move | Spent in any combat Move |
-| **Walls** | Build Walls Move | Reduced by sieges |
+| **Stock** | Granary (+2/turn), Work the Fields Move | People eat `ceil(People / 2)` each Upkeep; spent as Wall materials |
+| **People** | +1 when fed *and* Stock surplus ≥ 4 *and* discontent < 40 | Starvation (−1/season with no Stock), unrest, Tax/Make-an-Example Bitters, martial fronts |
+| **Ammo** | Muster the Watch | Spent in combat Moves (future) |
+| **Walls** | Build Walls Move | Absorbed by Raid/March fronts |
+
+**The feeding loop:** each season the hold eats `ceil(People / 2)` Stock. Fed + surplus → People grow (a bigger tax base that *also* eats more next season). Unfed → someone starves and discontent spikes. A Granary kept by its Steward covers a small hold; a growing one needs Work the Fields. This is the tension the player manages every turn.
+
+**Discontent → revolt:** discontent rises with starvation, Heat ≥ 6, and Authority < 30; it eases when fed and calm (faster with a Bailiff). At ≥ 60 the hold bleeds People and Authority; at 100 it revolts and the run ends. Make an Example cuts it sharply but a Bitter outcome breeds a martyr.
 
 **Mobile (Roadlord, Warhound):**
 
@@ -204,29 +224,29 @@ Each archetype has a **signature starting Building** (Granary, Garage, Shrine, W
 
 ---
 
-## 8. Defeat Triggers (engine-side)
+## 8. Endgame (engine-side)
+
+`end_turn` calls `check_endgame` (`engine/endgame.py`) after Upkeep and threats. The game is open-ended — there is no victory screen, only **how long you lasted and what you left behind**, scored as **Legacy**.
+
+### Defeat conditions (implemented)
+
+| Class | Condition |
+|---|---|
+| **Territorial** | People reach 0 (the hold empties), or the hold's discontent hits 100 (it revolts and throws you out). |
+| **Mobile** | Riders reach 0 (the gang scatters). |
+| **Embedded** | Cover gone with Heat ≥ 6 (exposed and purged), or no host left. |
+| **Universal** | `world.maelstrom >= 100` — the lid comes off the world. |
+
+The Maelstrom is a slow doom timer: it rises one notch every third season (plus Snag spikes), so even a well-run hold is playing against the clock. Legacy is the number the run is remembered by — seasons survived, holdings, people, and wealth.
+
+### Legacy score
 
 ```
-boss_defeated(f):
-    siege_killed = f.resources['walls'] == 0 and f.under_siege
-    succession_failed = f.leader_dead and not f.has_successor
-    return siege_killed or succession_failed
-
-mobile_defeated(f):
-    no_gang = f.resources['riders'] <= 1
-    no_fuel = f.resources['gas'] == 0 and not f.welcome_anywhere
-    contract_drought = f.archetype == 'warhound' and f.turns_without_contract >= 3
-    return no_gang or no_fuel or contract_drought
-
-embedded_defeated(f):
-    if f.archetype == 'fixer':
-        return len(f.branches) == 0
-    if f.archetype == 'hostkeeper':
-        return f.evicted and f.rebuild_turns_left > 0 and f.rebuild_canceled
-    return f.evicted and f.turns_since_eviction >= 2 and not f.new_host_pending
-
-universal_defeat(world):
-    return world.maelstrom >= 100
+legacy = turn * 5
+       + barter + juice
+       + (class-specific holdings: People×10 + Stock×2 + Walls×3 + population for a Boss;
+          Riders×8 + Gas×2 for a Mobile; Followers×6 + Secrets×4 + hosts×15 for Embedded)
+       + best leader stat / 5
 ```
 
-These are the canonical conditions. Phase 2 implements them; Phase 1 just declares them here.
+Mobile and Embedded economies (their per-turn drains and growth) are lighter until their full Move sets land; the defeat checks above already apply to them.

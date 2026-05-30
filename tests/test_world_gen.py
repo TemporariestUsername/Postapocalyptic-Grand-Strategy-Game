@@ -53,7 +53,8 @@ def _signature(world) -> tuple:
     )
     rel_sig = tuple(sorted(world.relationships.sentiments.items()))
     threat_sig = tuple(
-        (t.source_idx, t.target_idx, t.clock.label, t.clock.segments, t.clock.filled)
+        (t.source_idx, t.target_idx, t.kind.value,
+         t.clock.label, t.clock.segments, t.clock.filled)
         for t in world.threats.threats
     )
     return (map_sig, factions_sig, locations_sig, rel_sig, threat_sig)
