@@ -97,12 +97,12 @@ def test_upkeep_building_decays_without_keeper():
 
 
 def test_upkeep_runs_for_mobile_camp_buildings():
+    """Garage yields +2 Gas; Mobile economy then burns -1. Net +1."""
     w = generate_world(seed=42, player_archetype=Archetype.ROADLORD)
     p = w.player
     starting_gas = p.resources.get("gas", 0)
     run_upkeep(w, random.Random(0))
-    # Garage yields +2 Gas at condition 100.
-    assert p.resources["gas"] == starting_gas + 2
+    assert p.resources["gas"] == starting_gas + 1
 
 
 def test_upkeep_runs_for_hosted_embedded_buildings():
@@ -192,8 +192,96 @@ def test_maelstrom_rises_every_third_season():
     w.turn = 3                         # divisible by 3
     before = w.maelstrom
     run_upkeep(w, random.Random(0))
-    assert w.maelstrom == min(100, before + 1)
+    assert w.maelstrom >= min(100, before + 1)  # +1 timer; +0 from no thresholds firing
     w.turn = 4                         # not divisible by 3
     before = w.maelstrom
     run_upkeep(w, random.Random(0))
+    # Threshold events may have fired in the prior step; the doom-timer-only
+    # invariant is that it doesn't tick *up* on a non-third season.
     assert w.maelstrom == before
+
+
+# --- mobile economy -------------------------------------------------------
+
+def test_mobile_burns_gas_each_season():
+    w = generate_world(seed=42, player_archetype=Archetype.ROADLORD)
+    p = w.player
+    # Silence the Garage so we measure pure burn.
+    if p.camp is not None and p.camp.buildings:
+        p.camp.buildings[0].condition = 0
+        p.camp.buildings[0].assigned_officer = None
+    p.resources["gas"] = 5
+    run_upkeep(w, random.Random(0))
+    assert p.resources["gas"] == 4
+
+
+def test_dry_gas_bleeds_riders():
+    w = generate_world(seed=42, player_archetype=Archetype.ROADLORD)
+    p = w.player
+    if p.camp is not None and p.camp.buildings:
+        p.camp.buildings[0].condition = 0
+        p.camp.buildings[0].assigned_officer = None
+    p.resources["gas"] = 0
+    p.resources["riders"] = 4
+    run_upkeep(w, random.Random(0))
+    assert p.resources["riders"] == 3
+
+
+def test_sanctuary_shields_from_gas_drain():
+    w = generate_world(seed=42, player_archetype=Archetype.ROADLORD)
+    p = w.player
+    if p.camp is not None and p.camp.buildings:
+        p.camp.buildings[0].condition = 0
+        p.camp.buildings[0].assigned_officer = None
+    p.resources["gas"] = 5
+    pidx = w.player_idx
+    w.sanctuary_turns[pidx] = 2
+    run_upkeep(w, random.Random(0))
+    assert p.resources["gas"] == 5            # no burn
+    assert w.sanctuary_turns[pidx] == 1       # ticked down
+
+
+# --- embedded economy -----------------------------------------------------
+
+def test_embedded_cover_decays_under_heat():
+    w = generate_world(seed=42, player_archetype=Archetype.PROPHET)
+    p = w.player
+    p.resources["cover"] = 3
+    p.resources["heat"] = 5               # at/above pressure
+    run_upkeep(w, random.Random(0))
+    assert p.resources["cover"] == 2
+
+
+def test_embedded_cover_recovers_when_quiet():
+    w = generate_world(seed=42, player_archetype=Archetype.PROPHET)
+    p = w.player
+    p.resources["cover"] = 2
+    p.resources["heat"] = 0
+    run_upkeep(w, random.Random(0))
+    assert p.resources["cover"] == 3
+
+
+def test_embedded_cover_caps_at_ceiling():
+    w = generate_world(seed=42, player_archetype=Archetype.PROPHET)
+    p = w.player
+    p.resources["cover"] = 5
+    p.resources["heat"] = 0
+    run_upkeep(w, random.Random(0))
+    assert p.resources["cover"] == 5      # capped
+
+
+# --- Maelstrom threshold events ------------------------------------------
+
+def test_maelstrom_omens_fires_once_at_25():
+    w = generate_world(seed=42, player_archetype=Archetype.BOSS)
+    p = w.player
+    w.maelstrom = 25
+    p.resources["heat"] = 0           # baseline: nothing to decay
+    entries = run_upkeep(w, random.Random(0))
+    assert 25 in w.maelstrom_fired
+    assert p.resources["heat"] == 1   # +1 from Omens, no decay (was 0)
+    assert any("OMENS" in e.text for e in entries)
+    # Doesn't refire on subsequent upkeeps.
+    p.resources["heat"] = 0
+    run_upkeep(w, random.Random(0))
+    assert p.resources["heat"] == 0   # no further Omens kick

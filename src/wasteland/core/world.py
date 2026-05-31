@@ -49,6 +49,15 @@ class World:
     actions_left: int = 0
     event_log: list["LogEntry"] = field(default_factory=list)
 
+    # Per-faction transient buffs that last beyond one turn.
+    #   - Mobile factions with sanctuary_turns > 0 don't burn Gas this season
+    #     and are sheltered inside their host.
+    sanctuary_turns: dict[int, int] = field(default_factory=dict)  # faction_idx -> seasons left
+
+    # Maelstrom thresholds that have already fired (25, 50, 75, 100). Tracked so
+    # each threshold fires once even as the meter oscillates.
+    maelstrom_fired: set[int] = field(default_factory=set)
+
     # None while the game is live; a GameOutcome once it ends.
     outcome: GameOutcome | None = None
 

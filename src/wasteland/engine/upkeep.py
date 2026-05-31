@@ -8,14 +8,13 @@ must land before the hold feeds itself. The sequence is:
     2. Buildings: maintenance (keeper present => +1 condition, else -1), then
        deposit condition-scaled yield into the owner's resources.
     3. Heat decay: every faction with Heat > 0 loses 1.
-    4. Territorial economy: the hold feeds on Stock, starves if it can't, grows
-       on a surplus, and simmers (discontent) under scarcity, Heat, and weak
-       Authority. A hold at max discontent is about to revolt (endgame checks
-       that). This is the strategic core - the loop the player manages.
-    5. Maelstrom: rises one notch every third season (a slow doom timer).
-
-Steps 1-3 are archetype-general. Step 4 is Territorial-only for now; Mobile and
-Embedded economies arrive with their full Move sets.
+    4. Class economies: each class has its own per-turn loop -
+         Territorial: feed People, grow on surplus, simmer (discontent).
+         Mobile:      burn Gas; if dry, the gang starts to fray (Riders -1).
+                      Sanctuary turns shield from Gas drain.
+         Embedded:    Cover decays under Heat; recovers slowly when quiet.
+    5. Maelstrom: rises one notch every third season; threshold events fire
+       once each (25 Omens, 50 Surges, 75 Possessions, 100 The Lid Comes Off).
 """
 
 from __future__ import annotations
@@ -31,6 +30,7 @@ from .log import LogEntry, LogKind
 
 
 # --- economy tuning ---------------------------------------------------------
+# Territorial
 _FEED_PER_TWO_PEOPLE = 2     # People eat ceil(People / 2) Stock each season
 _STARVE_PEOPLE_LOSS = 1
 _STARVE_DISCONTENT = 12
@@ -41,6 +41,13 @@ _HEAT_PRESSURE_AT = 6        # Heat at or above this feeds discontent
 _UNREST_AT = 60             # discontent at or above this bleeds People + Authority
 _UNREST_PEOPLE_LOSS = 1
 _UNREST_AUTHORITY_LOSS = 4
+# Mobile
+_GAS_DRAIN = 1               # the road burns fuel every season
+_DRY_RIDER_LOSS = 1          # an unfuelled gang loses a Rider per dry season
+# Embedded
+_COVER_HEAT_PRESSURE = 4     # Heat at or above this peels Cover off
+_COVER_RECOVERY_CEILING = 5  # Cover slowly recovers toward this when quiet
+# Global
 _MAELSTROM_EVERY = 3         # seasons between Maelstrom notches
 
 
@@ -162,6 +169,85 @@ def _territorial_economy(
     return entries
 
 
+def _mobile_economy(world: World, idx: int, f: Faction) -> list[LogEntry]:
+    """Burn fuel, fray when dry. Sanctuary turns shield the gang for a season."""
+    entries: list[LogEntry] = []
+    sanctuary_left = world.sanctuary_turns.get(idx, 0)
+    if sanctuary_left > 0:
+        world.sanctuary_turns[idx] = sanctuary_left - 1
+        if f.is_player:
+            entries.append(LogEntry(turn=world.turn, kind=LogKind.OUTCOME,
+                text=f"You sleep behind walls tonight. Sanctuary holds ({sanctuary_left - 1} seasons left)."))
+        return entries
+
+    gas = f.resources.get("gas", 0)
+    if gas > 0:
+        f.resources["gas"] = gas - _GAS_DRAIN
+        return entries
+    # No fuel, no shelter - the gang frays.
+    riders = f.resources.get("riders", 0)
+    if riders > 0:
+        f.resources["riders"] = riders - _DRY_RIDER_LOSS
+    if f.is_player:
+        entries.append(LogEntry(turn=world.turn, kind=LogKind.SNAG,
+            text="The tanks are dry; a Rider walks away in the night. Riders -1."))
+    return entries
+
+
+def _embedded_economy(world: World, idx: int, f: Faction) -> list[LogEntry]:
+    """Cover peels under Heat and slowly recovers when the host stops looking."""
+    entries: list[LogEntry] = []
+    heat = f.resources.get("heat", 0)
+    cover = f.resources.get("cover", 0)
+    if heat >= _COVER_HEAT_PRESSURE and cover > 0:
+        f.resources["cover"] = cover - 1
+        if f.is_player:
+            entries.append(LogEntry(turn=world.turn, kind=LogKind.OUTCOME,
+                text="Someone is starting to notice you. Cover -1."))
+    elif heat < _COVER_HEAT_PRESSURE and cover < _COVER_RECOVERY_CEILING:
+        f.resources["cover"] = cover + 1
+    return entries
+
+
+def _maelstrom_thresholds(world: World) -> list[LogEntry]:
+    """Fire one-shot threshold events the first time the meter crosses each band.
+
+    25  Omens     - flavor; everyone takes Heat +1 (the wasteland is paying attention).
+    50  Surges    - placeholder hook (Phase 4 will pick a Character to 'open').
+    75  Possessions - placeholder hook (Phase 4 will roll possession effects).
+    100 covered by endgame's universal defeat.
+    """
+    entries: list[LogEntry] = []
+    if world.maelstrom >= 25 and 25 not in world.maelstrom_fired:
+        world.maelstrom_fired.add(25)
+        for f in world.factions:
+            f.resources["heat"] = f.resources.get("heat", 0) + 1
+        entries.append(LogEntry(
+            turn=world.turn, kind=LogKind.SYSTEM,
+            text="OMENS. The dogs all bark at nothing. Crows fly inland. Heat +1 everywhere.",
+        ))
+    if world.maelstrom >= 50 and 50 not in world.maelstrom_fired:
+        world.maelstrom_fired.add(50)
+        entries.append(LogEntry(
+            turn=world.turn, kind=LogKind.SYSTEM,
+            text="SURGES. The Maelstrom touches the world; a named soul somewhere opens to it.",
+        ))
+    if world.maelstrom >= 75 and 75 not in world.maelstrom_fired:
+        world.maelstrom_fired.add(75)
+        entries.append(LogEntry(
+            turn=world.turn, kind=LogKind.SYSTEM,
+            text="POSSESSIONS. The Maelstrom acts directly. Bitter cards multiply.",
+        ))
+        # Bite: every faction's deck gains one Bitter card (slid into a random position).
+        for f in world.factions:
+            if f.fortune is not None and f.fortune.draw_pile:
+                from .fortune import Outcome
+                import random as _r
+                pos = _r.Random(world.seed ^ world.turn ^ id(f)).randint(0, len(f.fortune.draw_pile))
+                f.fortune.draw_pile.insert(pos, Outcome.BITTER)
+    return entries
+
+
 def run_upkeep(world: World, rng: random.Random) -> list[LogEntry]:
     entries: list[LogEntry] = []
 
@@ -190,15 +276,22 @@ def run_upkeep(world: World, rng: random.Random) -> list[LogEntry]:
         if heat > 0:
             f.resources["heat"] = max(0, heat - 1)
 
-    # 4. Territorial economy.
-    for idx, loc in world.locations.items():
+    # 4. Class economies.
+    for loc in world.locations.values():
         owner = world.factions[loc.owner_faction_idx]
         if ARCHETYPE_CLASS[owner.archetype] is ArchetypeClass.TERRITORIAL:
             entries.extend(_territorial_economy(world, owner, loc, owner.is_player))
+    for idx, f in enumerate(world.factions):
+        cls = ARCHETYPE_CLASS[f.archetype]
+        if cls is ArchetypeClass.MOBILE:
+            entries.extend(_mobile_economy(world, idx, f))
+        elif cls is ArchetypeClass.EMBEDDED:
+            entries.extend(_embedded_economy(world, idx, f))
 
-    # 5. Maelstrom doom timer.
+    # 5. Maelstrom doom timer + threshold events.
     if world.turn % _MAELSTROM_EVERY == 0:
         world.maelstrom = min(100, world.maelstrom + 1)
+    entries.extend(_maelstrom_thresholds(world))
 
     entries.append(LogEntry(
         turn=world.turn,
