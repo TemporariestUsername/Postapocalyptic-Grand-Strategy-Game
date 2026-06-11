@@ -23,23 +23,84 @@ WebAudio while you play. The repository contains code and prose, nothing else.
 
 ---
 
-## Run it
+## Install & run
 
-No build step. No dependencies. Pick whichever you like:
+### What you need
+
+- **A modern desktop browser** — Chrome, Edge, Firefox, or Safari from the
+  last few years. That's the whole runtime: the game is plain HTML, CSS, and
+  JavaScript with no build step, no bundler, and no dependencies.
+- **Optionally, Node.js 16+** (or Python 3) — only if you want to serve the
+  game over `http://localhost` instead of opening the file directly, or run
+  the test suite. The game itself never needs Node.
+
+### 1. Get the code
 
 ```bash
-# 1 — just open it
-open index.html              # macOS
-xdg-open index.html          # Linux
-start index.html             # Windows
-
-# 2 — or serve it (makes browser saves durable across sessions)
-node tools/serve.js          # -> http://localhost:8080
-# or: python3 -m http.server 8080
+git clone https://github.com/TemporariestUsername/Postapocalyptic-Grand-Strategy-Game.git
+cd Postapocalyptic-Grand-Strategy-Game
 ```
 
-Any modern desktop browser works (Chrome, Firefox, Edge, Safari). Turn your
-sound on — the soundtrack is half the weather report.
+No git? Use GitHub's **Code → Download ZIP**, unzip it anywhere, and open
+the folder. There is nothing to install afterwards — no `npm install`, no
+asset downloads. What's in the folder is the entire game.
+
+### 2. Start the game
+
+**Option A — just open it.** Double-click `index.html`, or from a terminal:
+
+```bash
+open index.html        # macOS
+xdg-open index.html    # Linux
+start index.html       # Windows (cmd)
+```
+
+The game runs fine from a `file://` URL because every script is a classic
+`<script>` tag and nothing is fetched at runtime.
+
+**Option B — serve it (recommended for keeping saves).** Browsers treat each
+`file://` page's localStorage more disposably than a real origin's, so if you
+care about your autosaves surviving, serve the folder and play at
+`http://localhost:8080`:
+
+```bash
+node tools/serve.js          # zero-dependency server bundled with the game
+# or, equivalently:
+python3 -m http.server 8080
+npx serve .
+```
+
+Then browse to **http://localhost:8080**.
+
+**Option C — host it anywhere static.** The folder works as-is on GitHub
+Pages, Netlify, or any static host — it's just files.
+
+### 3. Play
+
+Click **NEW GAME**, pick a banner, pick how cruel the wasteland should be,
+optionally type a seed (any number or phrase — the same seed always builds
+the same world), and click **INTO THE ASH**. A short *How to Survive* primer
+opens on your first run, and the `?` button brings it back any time. Your
+game autosaves every season; **CONTINUE** on the title screen picks it up.
+
+**Turn your sound on.** Browsers block audio until you interact with a page,
+so the soundtrack fades in after your first click. If you hear nothing,
+check the in-game ⚙ settings sliders and the tab's mute flag — there is no
+audio hardware requirement beyond a working speaker.
+
+### Troubleshooting
+
+- **Blank page when double-clicking `index.html`** — some locked-down
+  browsers refuse all `file://` scripts. Use Option B instead.
+- **"CONTINUE" is greyed out** — there's no save under this origin yet
+  (saves from `file://` and `http://localhost` are separate worlds).
+- **No music** — click anywhere once (autoplay policy), then check ⚙ →
+  Music volume and the **M** mute toggle.
+- **It's slow** — zoom out less aggressively, or toggle off film grain in ⚙.
+  The renderer is plain Canvas 2D and comfortable on anything from the last
+  decade.
+
+(Developers: the test suite and tooling are covered in [Tests](#tests) below.)
 
 ---
 
