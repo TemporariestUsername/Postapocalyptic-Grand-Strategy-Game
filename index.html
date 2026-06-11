@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASHFALL — a grand strategy of the ruined earth</title>
+<meta name="description" content="An evocative, gritty, post-apocalyptic grand strategy game. Procedural worlds, six factions, a synthesized soundtrack. No install, no assets, one ruined earth.">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230a0a0c'/><path d='M9 26 16 6l7 20' stroke='%23e8d9a0' stroke-width='2.5' fill='none'/><circle cx='16' cy='6' r='2.4' fill='%23d65a3a'/></svg>">
+</head>
+<body>
+
+<!-- ======================= TITLE ======================= -->
+<div id="title-screen">
+  <canvas id="title-bg"></canvas>
+  <div class="title-content">
+    <div class="title-block">
+      <h1 class="game-title">ASHFALL</h1>
+      <div class="tagline">The world ended. The ash remembers.</div>
+    </div>
+
+    <div id="title-menu">
+      <button class="menu-btn" id="btn-new">NEW GAME</button>
+      <button class="menu-btn" id="btn-continue" disabled>CONTINUE</button>
+      <button class="menu-btn" id="btn-about">ABOUT</button>
+    </div>
+
+    <div id="about-panel" class="hidden">
+      <p><b>ASHFALL</b> is a turn-based grand strategy of survival, eighty-seven years
+      after the Fall. Lead one of six factions across a procedurally ruined
+      earth: feed your people, raise warbands, salvage the old world, outlast
+      the storms — and end the long silence, one way or another.</p>
+      <p class="muted">Every map, every sound, every note of the soundtrack is generated
+      live in your browser. There are no asset files. There is only the seed.</p>
+    </div>
+
+    <div id="setup-panel" class="hidden">
+      <div class="setup-title">CHOOSE YOUR BANNER</div>
+      <div id="faction-cards"></div>
+      <div class="setup-row">
+        <div class="setup-label">THE WASTELAND'S MOOD</div>
+        <div id="diff-row">
+          <button class="diff-btn" data-key="ember">EMBER<span>gentle</span></button>
+          <button class="diff-btn picked" data-key="ash">ASH<span>honest</span></button>
+          <button class="diff-btn" data-key="cinder">CINDER<span>cruel</span></button>
+        </div>
+        <div class="setup-label">SEED <span class="muted">(blank for fate)</span></div>
+        <input id="seed-input" type="text" placeholder="42, or any words you like" spellcheck="false">
+      </div>
+      <div class="setup-actions">
+        <button class="menu-btn" id="btn-setup-back">BACK</button>
+        <button class="menu-btn primary" id="btn-begin">INTO THE ASH</button>
+      </div>
+    </div>
+
+    <div class="title-footer">a fully procedural grand strategy — map, music &amp; art synthesized live · best with sound on</div>
+  </div>
+</div>
+
+<!-- ======================= GAME ======================= -->
+<div id="game-screen" class="hidden">
+  <div id="topbar">
+    <div id="top-faction">
+      <canvas id="top-sigil" width="28" height="28"></canvas>
+      <div class="top-fac-text">
+        <div id="top-fname"></div>
+        <div id="top-leader"></div>
+      </div>
+    </div>
+    <div id="resources"></div>
+    <div id="top-hope"></div>
+    <div id="top-season"></div>
+    <div id="top-buttons">
+      <button class="top-btn" id="btn-factions" data-tip="Rivals, relations, war and peace">RIVALS</button>
+      <button class="top-btn" id="btn-tech" data-tip="Research — recover what the old world knew">REMEMBRANCE</button>
+      <button class="top-btn" id="btn-market" data-tip="Trade resources for scrap and back">MARKET</button>
+      <button class="top-btn" id="btn-help" data-tip="How to survive">?</button>
+      <button class="top-btn" id="btn-settings" data-tip="Sound, saves, surrender">⚙</button>
+    </div>
+  </div>
+
+  <div id="map-wrap">
+    <canvas id="map"></canvas>
+    <div id="map-tip" class="hidden"></div>
+    <div id="side-panel"></div>
+    <div id="log-panel">
+      <div class="log-title">THE LEDGER</div>
+      <div id="log-entries"></div>
+    </div>
+    <canvas id="minimap" width="220" height="148"></canvas>
+    <button id="btn-endturn" data-tip="End the season (Enter). The world will take its turn.">END<br>SEASON</button>
+    <div id="toasts"></div>
+    <div id="season-banner" class="hidden"></div>
+  </div>
+</div>
+
+<div id="modal-root" class="hidden"></div>
+<div id="tooltip" class="hidden"></div>
+
+<script src="js/util.js"></script>
+<script src="js/rng.js"></script>
+<script src="js/names.js"></script>
+<script src="js/data.js"></script>
+<script src="js/worldgen.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/events.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/turn.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

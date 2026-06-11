@@ -1,345 +1,199 @@
-# Wasteland — Master Design Document
+# ASHFALL — systems reference
 
-> A turn-based grand strategy game inspired by Vincent Baker's *Apocalypse World*.
-> You don't play a faceless empire. You play one *kind* of power.
-
----
-
-## 1. Premise & Tone
-
-The apocalypse already happened. Nobody agrees on what it was. Some say the bombs, some say the plague, some say the Maelstrom rose up and took everything that wasn't bolted down. The history isn't the point. The wasteland is the point.
-
-What's left: **hardholds** — fortified settlements clinging to defensible water, fertile dirt, or some pre-Fall machine nobody understands; **roads** between them, half-buried; **gangs** that ride the roads because they can't take the holds; **cults** that grew up in the holds because the holds couldn't keep them out; and the **Maelstrom**, the psychic undertow that whispers to anyone with the ear for it and which is, in some sense, what's wrong with everything.
-
-The tone is **scarcity, weariness, and consequence**:
-
-- Resources are always short. The hold's grain stores are always months away from running out. Ammo is hoarded. Fuel is worth blood.
-- Every action costs something. There are very few clean wins. The mechanic embodies this — the most common outcome is a *Mixed* draw, and Mixed always means "you get what you wanted, but here's what it cost."
-- Death is normal. Holds fall. Leaders die. Cults schism. The game does not protect you. The default ending is defeat.
-- The Maelstrom listens. Some characters *use* it. Most are wise to fear it.
-
-The game should feel like *Mad Max* on the road, *The Road* in the wastes, and *True Detective: Season 1* whenever the Maelstrom is on screen.
+This is the contributor-facing description of how the simulation actually
+works. Numbers quoted here live in `ASH.data.BALANCE` (`js/data.js`) unless
+noted; if this document and the code disagree, the code is right and this
+file has a bug.
 
 ---
 
-## 2. Player Fantasy — *one kind of power*
+## 1. The seed contract
 
-You are not playing "a civilization." You are playing **a single faction** with a leader, a small set of stats, and a structurally specific game that is **different from the games other archetypes play**.
+`ASH.worldgen.newGame({seed, playerKey, difficulty})` must produce a
+byte-identical state for identical inputs. Two mechanisms guarantee it:
 
-There are three structural classes of faction:
+- **Derived streams for generation.** Every worldgen subsystem (elevation,
+  moisture, features, sites, factions, tile variants) gets its own
+  `rng.local(rng.derive(seed, "salt"))` closure. Adding a new generation step
+  with a new salt never shifts the draws of existing steps.
+- **One simulation stream for play.** Every in-game roll — combat variance,
+  storms, growth, AI dice, event draws — goes through `rng.next(state)`,
+  which advances the 32-bit `state.rngState` (mulberry32). The stream is part
+  of the save, so a loaded game continues the same history it would have had.
 
-| Class | What you have | What you don't | The game you play |
-|---|---|---|---|
-| **Territorial** | Walls, people, grain, a gate | Mobility, secrecy | Defend what you hold. Project power outward. Survive the inside as much as the outside. |
-| **Mobile** | Wheels, fuel, a gang | A home, a wall | Where do we sleep tonight? Who do we squeeze? When do we run? |
-| **Embedded** | A host, followers, secrets | Open authority, your own walls | Stay useful, stay hidden, take the temple from the inside. |
+Purely cosmetic randomness (particles, audio note choice) uses separate local
+streams and must never touch `state`.
 
-If you play a **Boss** (territorial), you are playing the closest thing to a classic 4X game: you own hexes, you have garrisons, you tax your population, you build walls, you go to war with the neighboring Boss. Your defeats are familiar: starvation, siege, succession crisis.
+## 2. The world
 
-If you play a **Roadlord** (mobile), you have no land at all. Each turn you and your gang are *in* a hex; next turn you're somewhere else. Your resources are Gas and Riders. The Bosses pay you not to raid them; the cults invite you to do things their hosts can't be seen doing. Your defeat is when the road runs out — no fuel, no gang, no welcome anywhere.
+A 36×24 grid of pointy-top hexes, odd-r offset. Terrain comes from two fBm
+value-noise fields (elevation, moisture) cut by quantiles:
 
-If you play a **Prophet** (embedded), you start *inside someone else's hold*. The Boss does not necessarily know you're there. Your followers are a parallel power structure inside their walls. Your moves are Preach, Convert, Schism, Open to the Maelstrom. You win by taking the hold from inside, or by spreading across multiple holds without ever ruling one openly. Your defeat is when the host detects and purges you.
-
-Every one of those archetypes is **selectable from the title screen**. None of them is "the player faction" versus "the NPC factions." The world is populated by other factions of the same archetypes, each playing the same game you are, against you and each other.
-
----
-
-## 3. Turn Structure
-
-One turn is one **season**.
-
-```
-1. UPKEEP          — pay maintenance (Stock, Gas, Followers' demands). Faction may starve here.
-2. MAELSTROM       — the Maelstrom clock advances; events fire at thresholds.
-3. PLAYER ACTIONS  — spend an action budget (see below) on Moves.
-4. RIVAL FACTIONS  — each AI faction takes its actions, in initiative order.
-5. THREAT CLOCKS   — all unresolved threat clocks tick forward.
-6. END             — death/eviction/fall checks. Defeat screens fire here.
-```
-
-**Action budgets are asymmetric.** A Boss runs a hold full of subordinates and gets **3 actions** per turn. A Roadlord can only be in one place and gets **2 actions** plus a free Ride. An embedded faction is constrained by its cover and gets **2 actions**, but can also spend **1 Secret Move** per turn that does not generate Heat.
-
-**Initiative is partially random.** The order in which AI factions act is rerolled each turn (seeded), so the player can't memorize "the Roadlord always raids me before the Prophet preaches." This keeps the wasteland feeling reactive.
-
----
-
-## 4. The Three Archetype Classes
-
-### Territorial — *the spine of the game*
-
-There is one Territorial archetype: the **Boss**. Bosses are the substrate of the wasteland. They own hexes. They hold population. They control the grain. Without them, the other archetypes have nowhere to attach.
-
-A Boss's existence is **public**. Everyone in the wasteland knows the name of every Boss within five hexes. You cannot hide a hold.
-
-A Boss's primary loop:
-- Tax the hold for Barter and Stock.
-- Defend the walls against raids.
-- Project power outward into adjacent hexes (which can themselves become holdings).
-- Deal with the embedded factions you can see, and the ones you can't.
-
-### Mobile — *the wasteland's nervous system*
-
-Mobile archetypes (**Roadlord**, **Warhound**) own no land. They occupy a single hex each turn and can move every turn. They have no walls; their defense is movement and reputation.
-
-Their resources are Gas and Riders (or Soldiers). Both are **constantly draining**. A Roadlord that doesn't raid, extort, or get hired this turn is bleeding fuel for nothing.
-
-Mobiles **cannot be besieged**. They can be hunted, ambushed, or starved (cut off from fuel), but you cannot trap them in place. They make the wasteland between the holds dangerous in a way no Boss can match.
-
-### Embedded — *the parasite is also the immune system*
-
-Embedded archetypes (**Prophet**, **Tinker**, **Whisper**, **Fixer**, **Hostkeeper**) live *inside a hardhold*. Their host may or may not be theirs. A Boss-faction may have a Prophet operating openly under their patronage — or one operating *without their knowledge*, in their own walls, building toward a coup.
-
-Their public existence is partial. Bosses know the Hostkeeper runs the bar; they know the Tinker fixes things. They do not necessarily know the Hostkeeper is taking confessions for the Whisper, or that the Tinker is also a Prophet.
-
-Their resources are Followers, Secrets, and Cover. Cover is the inverse of Heat at the embedded scale — when a faction's Heat exceeds its Cover, the host detects them, and the **eviction clock** starts ticking.
-
-Embedded factions interact with the world *through* their host. A Prophet in Glass-reach can preach to Glass-reach's population. They cannot preach to Salt-holm's population unless they cross the wastes and accept a new host there (a separate move that exposes them).
-
----
-
-## 5. Resources
-
-| Resource | Tracked by | Use |
+| terrain | source | notes |
 |---|---|---|
-| **Barter** | all | universal currency |
-| **Juice** | all | reputation/influence — spend to bend a deal |
-| **Heat** | all | how loud the world finds you; bad for everyone but especially fatal for Embedded |
-| **Stock** | Territorial | grain, water; consumed each Upkeep |
-| **People** | Territorial | population; produces Stock and Barter, can be Conscripted |
-| **Ammo** | Territorial, Mobile | needed for any combat Move |
-| **Walls** | Territorial | reduces incoming damage in sieges/raids |
-| **Gas** | Mobile | needed to Ride each turn |
-| **Riders** | Mobile | gang strength — needed for raids, extortion, and protection contracts |
-| **Followers** | Embedded | flock/customers/marks; produces Barter and Secrets |
-| **Secrets** | Embedded | the embedded faction's primary leverage; spend to coerce or to be paid |
-| **Cover** | Embedded | inverse of Heat at the embedded scale |
-
-This is a deliberately small economy. Each archetype tracks **about six resources** (three universal + class-specific). The cognitive load on the player is bounded.
-
----
-
-## 6. Stats — *Characters, not Factions*
-
-Stats don't live on the Faction. They live on the **Characters** that run the faction: a **Leader** and **3 Officers** (see `docs/PERSONNEL.md`). Every Character has five 0–100 stats; which five depends on the faction's class:
-
-| Class       | Stats                                                  |
-|-------------|--------------------------------------------------------|
-| Territorial | **Authority, Industry, Vigilance, Standing, Cunning**  |
-| Mobile      | **Notoriety, Cohesion, Mobility, Standing, Cunning**   |
-| Embedded    | **Influence, Network, Discretion, Conviction, Cunning**|
-
-Cunning is shared across all classes (every leader needs guile). Standing is shared by Territorial and Mobile (the two classes that deal publicly with the wider world); Embedded swaps it for Conviction (commitment to the embedded mission — faith for Prophets, craft-obsession for Tinkers, profit-loyalty for Fixers).
-
-Stats are **dynamic**. They climb when used in Moves (Strong outcomes deposit XP into the acting officer's primary stat) and drift toward 50 each turn when idle. A specialist is someone who pushes themselves into the 70+ band; they bend Fortune draws in their favor. Most officers cluster around 50–60 and don't bend luck — they take the single card the deck deals them. Wounded officers (≤ 30) hurt Fortune draws.
-
-Each Move declares the stat and the officer role that performs it. Tax the Hold runs on the Steward's Authority; Storm a Hold runs on the Warhound Sergeant's Cohesion; Move Goods runs on the Fixer Lieutenant's Network. Same Fortune-card mechanic, but who picks the cards depends on which lieutenant you've kept alive and trained.
-
----
-
-## 7. Action Resolution — *Fortune Cards*
-
-We need a resolution mechanic that captures the *Apocalypse World* feel of "the most common outcome is a partial success that costs you something" — without copying AW's 2d6+stat math.
-
-**The mechanic: Fortune Cards.**
-
-Each faction has its own **Fortune Deck** of 12 cards:
-
-- **3 Strong cards** — full success
-- **6 Mixed cards** — success with a cost (the default)
-- **3 Bitter cards** — failure, often with a complication
-
-To resolve a Move:
-1. Identify the relevant stat (each Move declares one).
-2. Draw 1 card.
-3. If the stat is +1 or higher, draw an extra card and **keep the better**.
-4. If the stat is -1 or lower, draw an extra card and **keep the worse**.
-5. Resolve the Move's text for that outcome.
-6. The drawn card is set aside; the deck does not reshuffle until it is empty.
-
-This last point is the load-bearing design. **Bad luck is finite.** If you've drawn two Bitters in a row, there's only one left in the deck — your next gamble is statistically safer. It also gives skilled players information: counting cards is a legitimate strategic skill, the same way it is for a Boss who knows their granary has two seasons of stock left.
-
-Bitter cards always come with a **Snag**: a procedurally chosen complication — "an ally gets hurt," "Heat rises," "the Maelstrom notices." The same Move can fail in different ways across the deck's lifetime.
-
----
-
-## 8. Moves by Archetype
-
-Each archetype gets **4–6 signature Moves**. Below is the Phase-1 catalogue. Phase 2 fills in the mechanics for each (cost, stat, effect on Strong/Mixed/Bitter outcomes).
-
-Each Move declares its `acting_role` (the officer who performs it) and the named stat that feeds the Fortune draw. The role names are from each archetype's officer roster — see `docs/PERSONNEL.md` for the canonical slate.
-
-### Boss (Territorial)
-- **Tax the Hold** *(Steward · Authority)* — gain Barter; People drop by 1 on Bitter, Heat rises on Bitter.
-- **Conscript** *(Bailiff · Authority)* — convert People into Riders/Soldiers; Mixed costs Juice.
-- **Build Walls** *(Steward · Industry)* — increase Walls; Mixed delays one turn.
-- **Make an Example** *(Bailiff · Vigilance)* — public execution; reduces Heat at the cost of Juice.
-- **Mount a Sortie** *(Marshal · Vigilance)* — attack a hex outside your walls; Bitter means losing Riders without taking the hex.
-
-### Roadlord (Mobile)
-- **Ride** *(Outrider · free)* — move to an adjacent hex; ride farther on Strong.
-- **Raid** *(Lieutenant · Notoriety)* — hit a hold or convoy; trade Riders for Barter/Stock.
-- **Extort Tolls** *(Bag-man · Notoriety)* — set up at a road junction; passive Barter every turn until pushed off.
-- **Demand Sanctuary** *(Bag-man · Standing)* — make a hold host you for the winter; raises mutual Heat.
-- **Recruit on the Road** *(Bag-man · Standing)* — gain Riders from broken holds; raises your Heat.
-
-### Warhound (Mobile)
-- **Take the Contract** *(Quartermaster · Standing)* — accept a Boss's job; guarantees Barter, but the job is rolled procedurally.
-- **Storm a Hold** *(Sergeant · Cohesion)* — full assault; Riders trade for Walls and People.
-- **Drill the Squad** *(Sergeant · Cohesion)* — recover Riders' fatigue; pulls one Bitter out of your deck and replaces with Mixed.
-- **Sell Protection** *(Quartermaster · Standing)* — passive Barter from a hold while you stay nearby.
-
-### Prophet (Embedded)
-- **Preach** *(Chosen · Conviction)* — gain Followers in your host hold.
-- **Convert** *(Doomsayer · Influence)* — turn one of the host's People into your Followers; raises Heat.
-- **Open to the Maelstrom** *(Chosen · Conviction)* — gain Secrets; advances the global Maelstrom clock by 1.
-- **Anoint a Successor** *(Chosen · Conviction)* — establish a successor; survives your leader's death.
-- **Schism a Rival** *(Inquisitor · Cunning)* — split another embedded faction's Followers.
-
-### Tinker (Embedded)
-- **Build Something Weird** *(Apprentice · Network)* — produce a one-shot artifact (procedural effect).
-- **Trade Up** *(Junker · Network)* — convert Barter to better Barter via salvage; Mixed: less than promised.
-- **Diagnose** *(Salvager · Cunning)* — reveal one Secret about another faction in your host.
-- **Wire the Hold** *(Apprentice · Discretion)* — set up surveillance that raises your Cover.
-
-### Whisper (Embedded)
-- **Read a Person** *(Listener · Network)* — gain a Secret about any named character.
-- **Plant a Suggestion** *(Acolyte · Influence)* — influence one of the host's actions next turn.
-- **Brainwipe** *(Sleeper · Discretion)* — remove one Secret another faction holds about you.
-- **Walk in Dreams** *(Acolyte · Influence)* — see one rival's planned move; raises Maelstrom.
-
-### Fixer (Embedded)
-- **Move Goods** *(Lieutenant · Network)* — convert Barter across two holds you have presence in.
-- **Call in a Favor** *(Lieutenant · Network)* — spend Juice for a one-time effect from any named character.
-- **Set up a Score** *(Captain · Conviction)* — start a 3-segment clock that pays out Barter when it fills.
-- **Sell a Secret** *(Smuggler · Discretion)* — trade Secrets for Barter or Juice.
-
-### Hostkeeper (Embedded)
-- **Throw a Night** *(Bartender · Influence)* — gain Followers (customers); gain a Secret on Strong.
-- **Hear Things** *(Madam · Network)* — gain a Secret about your host's plans.
-- **Run a Tab** *(Bartender · Influence)* — defer a Barter cost from another Move; the tab itself becomes leverage on the debtor.
-- **Quietly Vanish Someone** *(Bouncer · Discretion)* — remove a named character; raises Heat sharply.
-
----
-
-## 9. Cross-Faction Interaction
-
-The asymmetry creates rich interaction patterns. A non-exhaustive list:
-
-- **A Boss vs. an enemy Boss.** Classic territorial war: sorties, sieges, attrition. Walls vs. Walls.
-- **A Boss vs. a Mobile.** The Boss cannot pursue; the Mobile cannot besiege. They settle into a *protection-or-tribute* dynamic, or the Boss hires a Warhound to hunt the Mobile.
-- **A Boss vs. an Embedded faction inside their hold.** If the Boss doesn't know the embedded faction is there, this interaction doesn't exist yet. Once Heat exceeds Cover, the Boss can spend actions on Investigate / Purge / Evict. The Embedded faction can run, switch hosts, or fight back asymmetrically (Schism, Plant a Suggestion).
-- **Two Embedded factions in the same host.** They compete for Followers, Secrets, and the host's tolerance. They can also ally — a Prophet and a Fixer can be a frighteningly stable partnership.
-- **An Embedded faction vs. an outside Mobile.** Mostly mediated by the host. A Whisper might *want* a Roadlord to raid their host (weakens the Boss they're trying to undermine) and Plant a Suggestion accordingly.
-- **A Fixer in multiple holds.** Fixers are the only Embedded archetype with multi-host presence. Each new host requires a Move to establish, and raises Heat globally.
-
-This is the system's combinatorial heart and where most procedural texture will emerge. Phase 2 builds the relationship graph and the host/eviction system.
-
----
-
-## 10. The Maelstrom
-
-The Maelstrom is a **global meter** from 0 to 100. It rises with:
-- Violence (raids, sieges, assassinations).
-- Death (especially of named characters).
-- Deliberate Moves (Open to the Maelstrom, Walk in Dreams).
-- Tile-local pressure (irradiated zones have a passive +1/turn nearby).
-
-At threshold values (25, 50, 75, 100) the Maelstrom **acts**:
-
-- **25 — Omens.** Procedural narrative beats: dreams, dead birds, static. Mostly flavor.
-- **50 — Surges.** A named character somewhere in the wasteland *opens* — Embedded characters gain Conviction; Territorial/Mobile characters gain Cunning but lose Standing (the wasteland senses something wrong with them). The faction's behavior shifts.
-- **75 — Possessions.** A faction's leader may be replaced by the Maelstrom's puppet, with a hostile agenda. Rare but devastating.
-- **100 — The Lid Comes Off.** Universal defeat condition. The game ends. Final Legacy score is calculated against the wasteland that no longer exists.
-
-Prophets and Whispers *use* the Maelstrom — their best Moves draw on it, but those Moves also raise it. The tension is real for them: every Move that earns them Followers or Secrets brings the world closer to the cliff.
-
-See `docs/MAELSTROM.md` for the full event table.
-
----
-
-## 11. Threats & Clocks
-
-Every AI faction has **1–2 Threat clocks** at any time, modeled on AW's "fronts." A clock is `(label, segments_total, segments_filled, trigger)`. When the clock fills, the trigger fires — typically a hostile action against the player or another faction.
-
-Examples:
-- *"The Cracked Snakes raid Glass-reach in 4 turns unless tribute is paid."* (4-segment clock, +1/turn unless the player pays Barter)
-- *"Hands of the Long Silence schism the Boss's flock in 6 turns."*
-
-The player can **see** clocks they have a high-enough Cunning officer to read, and can **stall** them with Moves. Clocks the player can't see are revealed when they fire.
-
-See `docs/MECHANICS.md` for the threat-clock system in full.
-
----
-
-## 12. Map
-
-A pointy-top hex grid, **procedurally generated**. Default size is 24×16 hexes.
-
-Each hex has:
-- A **terrain** type: wastes, ruins, fertile, irradiated, deep_wilds.
-- A **scarcity** tag: barren, picked-over, fertile-but-claimed, rich, irradiated.
-- A possible **occupant**: a Boss (the hex *is* their hold), a Mobile (passing through), the wreck of a previous Boss, nothing.
-
-The map is the same for every faction in the same game (same seed). Where you start depends on your archetype:
-- Bosses spawn in fertile hexes with no other Boss within 3 hexes.
-- Mobiles spawn on a road tile or in wastes adjacent to one.
-- Embedded factions spawn inside a Boss's hold — *not necessarily yours*. The most interesting starts have you embedded in a rival Boss.
-
-Phase 1 ships only the interface for the map (`procgen/map_gen.py`). The real generator (cellular-automaton terrain + flood-fill biomes + road tracing) is Phase 2.
-
----
-
-## 13. Procedural Generation
-
-Covered in detail in [`PROCGEN.md`](PROCGEN.md). Key contract:
-
-> A single integer seed reproduces a full game state — map, factions, leaders, names, grudges, initial threats — byte for byte.
-
-Phase 1 implements the names layer and a demo roster generator. Phase 2 extends this to the full pipeline.
-
----
-
-## 14. Victory & Defeat
-
-There is no fixed victory. The game ends in **defeat or in the Maelstrom**.
-
-**Universal defeat:** Maelstrom hits 100. The wasteland ends. Final Legacy is calculated.
-
-**Archetype-specific defeat:**
-
-| Archetype | Defeat condition |
-|---|---|
-| **Boss** | The hold falls (Walls + Riders reduced to 0 during a siege) OR the leader dies and no successor is named. |
-| **Roadlord** | Riders below threshold (1) OR Gas at 0 with no Boss willing to fuel you. |
-| **Warhound** | Riders below threshold (1) OR no Contract holdable for 3 consecutive turns. |
-| **Prophet** | The host evicts you AND no other host accepts you within 2 turns. |
-| **Tinker** | The host evicts you AND no other host accepts you within 2 turns. |
-| **Whisper** | The host evicts you AND no other host accepts you within 2 turns. |
-| **Fixer** | Lose your last host (Fixers track multiple). |
-| **Hostkeeper** | The host evicts you — and Hostkeepers can't take a new host without rebuilding the establishment over 5 turns. The most fragile of the embeddeds. |
-
-**Legacy** is a final score combining longevity, resources accumulated, Moves performed, named rivals outlived, and Maelstrom level at game-over. The intent is that *runs are stories*, and the Legacy score is just a number to compare runs by.
-
----
-
-## 15. Architecture Notes
-
-- **Engine:** Pygame, single-window, 1024×768. No 3D, no shaders.
-- **Top-level:** A scene-based loop. The current scene receives events, ticks, and draws each frame. Scenes can request transitions (`scene.next_scene = NextScene(...)`) or quit (`scene.quit = True`).
-- **World state:** A single `World` dataclass holds all game state. Pure functions in `core/` and `engine/` mutate or replace it. This keeps save/load trivial later — pickling the dataclass tree is acceptable for Phase 2; we'll move to JSON at Phase 3 when modders need it.
-- **RNG:** Every procgen consumer takes an explicit `random.Random`. The seed flows from the CLI → `World.seed` → child RNGs via `rng.derive(parent, salt)`. **No `random.seed` at module scope.**
-- **Tests:** `pytest`. The two load-bearing tests for Phase 1 are `test_clock.py` (the threat-clock primitive) and `test_names.py` (the procgen determinism contract).
-- **Content:** Names, archetype pitches, and stat weights live in code, not JSON. Reason: changes to these in Phase 1–3 are rare and Python is more discoverable. We'll migrate to JSON/TOML when the content surface stabilizes.
-
----
-
-## 16. Open Questions
-
-These are flagged for resolution but **not blockers** for Phase 1:
-
-1. **Replenishing the Fortune Deck.** When the 12-card deck empties, do we reshuffle, or does the deck shrink permanently and force restart-flavored play? Lean: reshuffle, but only after a "Catch your breath" Move that costs Juice.
-2. **Multi-faction player.** Can a Fixer in two holds technically "be" both? Likely yes — Fixer is intentionally the cross-hold archetype.
-3. **Diplomacy UI.** A separate relationship-graph screen, or inline through faction tooltips? Probably both, but the inline view is the daily-driver.
-4. **Map size scaling.** 24×16 hexes is a guess. Phase 2 needs playtest to tune.
-5. **AI for embedded factions.** AI Bosses are tractable. AI Prophets are not — *what does an AI Whisper want, and how does it model "stay hidden"?* This will need its own design pass.
-6. **Sound.** Out of scope for now. The setting wants a sparse soundscape: wind, distant generators, occasional static. Out-of-scope marker, not a forgetting.
+| Black Water | elevation < q0.06 | impassable; adjacent settlements fish (+0.5 food/tile) |
+| Dead Sea | < q0.14 | passable, unsettleable salt waste |
+| Crags | > q0.90 | defence ×1.5, scrap + fuel |
+| Blightfens | moisture > q0.84 | food; doubled by a Purifier |
+| Pine Barrens | moisture > q0.60 | best plain food |
+| Ash Plains | everything else | the default grey |
+| Glasslands | 3–5 blast craters stamped on top | radioactive, unsettleable until Rad Inoculants |
+| Ruins | 5–7 random-walk city blobs | scrap + knowledge, defence ×1.3 |
+
+Craters carry a radiation field (rad 2–3 core, rad 1 fringe). Units ending a
+season on rad ground take `radDamage × rad/2` hp, modified by faction
+(`radImmune`, `radResist`) or the Rad Inoculants tech.
+
+**Sites:** 3 Sealed Vaults and 6 Supply Caches (one-shot salvage), 2 Old
+Reactors (+2 fuel/season to whoever holds the hex), and exactly 1 **Beacon**,
+biased toward the map's centre — the tech-victory objective.
+
+**Faction placement:** capitals go on the best-scored habitable tiles
+(food-weighted, rad-penalized) subject to a minimum spacing of 7 hexes
+(relaxed only if the map is cramped; tests assert ≥5). Each faction starts
+with its capital settlement (pop 12), the ring of tiles around it, its
+doctrine's starting warbands, and `startRes` (× difficulty for the player).
+
+## 3. Resources & the season tick
+
+Five stocks — **food, scrap, fuel, meds, knowledge** — plus **Hope** (0–100,
+faction-wide) and **population** (per settlement; 1 pop ≈ 20 souls).
+
+Each settlement yields per season:
+
+```
+base (2 food, 1.5 scrap)
++ 2 × its own tile's terrain yields
++ 1 × each adjacent owned tile's yields (water fishes at 0.5 food)
++ buildings (hydrofarm +3 food, forge +2.5 scrap, still +1.5 fuel, …)
++ 0.1 scrap per pop (labor)
+```
+
+Faction-level modifiers multiply after summing: doctrine mods, Reforged Tools
+(+20% scrap), season food multiplier (Long Dark ×0.55, Glare ×1.1), and the
+AI's difficulty yield factor. Consumption: pop × 0.5 food, plus per-unit
+scrap/fuel upkeep.
+
+**Deficits hurt instead of going negative:** a food deficit zeroes the stock,
+costs `starvationHopeHit` hope and 1 pop in the largest settlement; a
+scrap/fuel deficit marks `lastDeficit` (which gates the mutiny event), rots
+every warband for 10 hp, and bleeds hope. Fed factions with ≥3 food surplus
+roll for growth; war drags hope down each season; the Choir's `hopeFloor`
+holds at 15 while they hold a settlement.
+
+Buildings finish when their queue ticks to zero (Arc Forges save a season).
+Research progress accrues from net knowledge each tick.
+
+## 4. Units & combat
+
+Five unit types (scavenger, militia, raider, veteran, reclaimer) defined in
+`data.js`: cost, pop cost, upkeep, atk/def, movement, vision, abilities
+(salvage / pillage / found). Recruiting consumes settlement pop and yields a
+unit with 0 moves (mustering takes the season). Movement is Dijkstra over
+terrain costs; enemy-held tiles are entered only by capture.
+
+`combat.attack(state, fid, from, target)` resolves immediately:
+
+- up to 3 rounds; each side's strength = Σ (stat × hp%) with attacker/defender
+  faction mods and Plate & Powder, × random 0.85–1.2 per round;
+- defenders multiply by terrain defence, settlement (+20%), and Walls (×1.6);
+- settlements defend themselves even empty: garrison = `pop × 0.35 + 1.5`
+  (+2 with Barracks);
+- damage is proportional to force share, spread across the stack with the
+  front unit soaking more;
+- if every defender breaks and an attacker survives, the hex (and settlement)
+  is captured: a quarter of the pop flees, the ring of border tiles flips,
+  hope swings both ways, and a fallen **capital** relocates the loser's court
+  to their next settlement.
+
+Attacking someone you're not at war with declares it (rel −30 both ways). AI
+factions sue for peace when outmatched ~2:1; offers to the player arrive as a
+modal, and `sim.acceptsPeace` answers the player's own offers.
+
+## 5. Events
+
+`data.js` carries ~22 narrative events. Each has an id, prose, a weight
+(× difficulty `harsh` when flagged), an optional `cond(state, faction)`
+gate, a per-faction cooldown, optional `once`, and 2–3 choices whose
+`effects` are **declarative** (`{res:{food:-5}, hope:4, rel:{choir:12},
+spawn:{type:"militia"}, pop:2, tech:5, flagged:"x"}`) so the engine — and the
+test suite — can apply every branch mechanically. The player draws at most
+one per season (55% chance); AI factions quietly resolve their own draws by
+`aiScore` weights. A Purifier converts Black Rain into a log line, which is
+the building working as advertised.
+
+## 6. Remembrance (tech)
+
+Eleven techs in three branches, linear prereqs inside each:
+
+- **Survival:** Seed Vaults → Clean Water → Field Medicine → Rad Inoculants
+  (settle the glass, ignore its damage);
+- **Industry:** Reforged Tools → Combustion / Plate & Powder → Arc Forges;
+- **Signal:** Signal Discipline (+1 sight, reveal rival capitals) →
+  Cryptolexicon (+1 knowledge per Archive) → **The Long Antenna** (unlocks
+  the Beacon).
+
+## 7. The Beacon
+
+Hold the Beacon hex (claim it with any warband), research The Long Antenna,
+pay 60 scrap + 20 fuel to begin the Kindling, then end six seasons with a
+friendly warband standing on the spire. Losing the hex resets progress; an
+uncrewed season merely pauses it. Completing it wins the game; the AI does
+not pursue the Beacon (its three personality families chase land instead),
+which is a deliberate asymmetry: the Beacon is the *player's* long game under
+siege pressure.
+
+## 8. Victory & ruin
+
+Checked at the end of every season:
+
+- **Dominion:** any faction holding ≥60% of all settlements (min 8) — win if
+  it's you, game over if it isn't.
+- **Last banner:** sole surviving faction.
+- **Beacon:** see above.
+- **Ruin:** you lose every settlement (overrun), or Hope reaches 0
+  (collapse). Eliminated factions' lands return to the wastes.
+
+The Legacy score: `settlements×15 + pop×2 + techs×10 + battlesWon×5 +
+salvaged×3 + turns (+100 for winning)`.
+
+## 9. AI
+
+`ai.takeTurn` per rival each season: pick research from a doctrine-ordered
+list; build against deficits first, then by personality; recruit toward a
+desired army size (settlements + war posture + aggression); occasionally
+train a reclaimer and walk it to the best-scored site; consider war
+(needs a shared border, rel < −10, usually a 1.35:1 strength edge, scaled by
+personality × difficulty aggression); then move units — garrison threatened
+settlements, advance on the nearest enemy and attack when the local odds
+clear a personality-specific bar, salvage with scavengers, claim border
+hexes, drift home in peace. All of it rolls on the simulation stream, so AI
+behaviour replays deterministically.
+
+## 10. Save format
+
+`turn.serialize` strips the two derived tables (`adj`, `visible`) and
+stringifies the rest; `deserialize` validates `v: 1`, rebuilds adjacency, and
+recomputes vision. Saves live in `localStorage["ashfall.save.v1"]`
+(autosaved every season, cleared on game over). Round-tripping is asserted
+byte-identical in the tests.
+
+## 11. Presentation contracts
+
+- `render.js` owns a base offscreen canvas (terrain, borders, settlements,
+  fog) redrawn only when `markDirty()` is called — state mutations that
+  change the map must mark it. Per-frame work is units, highlights, storms,
+  shimmer, flashes, ash, vignette, grain, culled to the viewport.
+- `audio.js` exposes `boot()` (first user gesture), `updateMood(state)`,
+  `stinger(kind)`, `sfx(name)`; everything no-ops without an AudioContext so
+  the headless tests can load the file.
+- `ui.js` renders DOM from state and calls the controller in `main.js`;
+  neither is loaded by the core tests.
+
+## 12. Balance knobs
+
+Everything tunable sits in `ASH.data.BALANCE` with comments: eat rate, growth
+threshold and chance, heal/rad/storm damage, hope regen and war drag, battle
+rounds, pillage loot, dominion fraction, event chance, settlement caps. The
+test `economy: every faction starts food-positive` is the canary — if a
+balance change starves a doctrine on turn one, the suite says so.
