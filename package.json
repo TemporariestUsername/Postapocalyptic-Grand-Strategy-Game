@@ -1,0 +1,13 @@
+{
+  "name": "ashfall",
+  "version": "1.0.0",
+  "description": "An evocative, gritty, post-apocalyptic grand strategy game for the browser. Fully procedural map, art, and soundtrack — zero dependencies, zero asset files.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "test": "node tests/run_tests.js",
+    "test:dom": "node tests/smoke_dom.js",
+    "shots": "node tools/screenshot.js"
+  }
+}
