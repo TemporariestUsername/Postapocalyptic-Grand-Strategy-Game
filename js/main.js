@@ -313,6 +313,9 @@ var ASH = typeof ASH !== "undefined" ? ASH : {};
     $("title-screen").classList.toggle("hidden", name !== "title");
     $("game-screen").classList.toggle("hidden", name !== "game");
     if (name === "title") $("setup-panel").classList.add("hidden"), $("title-menu").classList.remove("hidden");
+    /* the map canvas measured 0x0 while the game screen was display:none —
+     * now that it has layout, size it before the first frame */
+    if (name === "game") resize();
   }
 
   function refreshContinue() {
@@ -451,11 +454,16 @@ var ASH = typeof ASH !== "undefined" ? ASH : {};
   function resize() {
     var canvas = $("map");
     var wrap = $("map-wrap");
-    canvas.width = wrap.clientWidth;
-    canvas.height = wrap.clientHeight;
+    /* a hidden container measures 0x0 — never let that zero out the canvas */
+    if (wrap.clientWidth > 0 && wrap.clientHeight > 0) {
+      canvas.width = wrap.clientWidth;
+      canvas.height = wrap.clientHeight;
+    }
     var t = $("title-bg");
-    t.width = window.innerWidth;
-    t.height = window.innerHeight;
+    if (window.innerWidth > 0) {
+      t.width = window.innerWidth;
+      t.height = window.innerHeight;
+    }
   }
 
   var lastT = 0, miniT = 0, topT = 0;
@@ -465,6 +473,14 @@ var ASH = typeof ASH !== "undefined" ? ASH : {};
     if (ctrl.screen === "title") {
       ASH.render.drawTitle($("title-bg"), ts / 1000);
     } else if (ctrl.state) {
+      /* self-heal: if layout changed (or the canvas was sized while hidden),
+       * match it to its container before drawing */
+      var mc = $("map"), mw = $("map-wrap");
+      if ((mc.width !== mw.clientWidth || mc.height !== mw.clientHeight) &&
+          mw.clientWidth > 0 && mw.clientHeight > 0) {
+        mc.width = mw.clientWidth;
+        mc.height = mw.clientHeight;
+      }
       ASH.render.frame(dt, {
         selectedTile: ctrl.sel.tile,
         selectedUnits: ctrl.sel.units,
