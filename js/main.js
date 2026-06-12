@@ -287,7 +287,7 @@ var ASH = typeof ASH !== "undefined" ? ASH : {};
     quitToTitle: function () {
       ctrl.autosave();
       showScreen("title");
-      ASH.audio.setMood("title");
+      ASH.audio.updateMood(null); // back to the wasteland's own theme
     },
     autosave: function () {
       try {
@@ -354,6 +354,8 @@ var ASH = typeof ASH !== "undefined" ? ASH : {};
         el.classList.add("picked");
         ctrl.setup.playerKey = el.getAttribute("data-key");
         ASH.audio.sfx("select");
+        /* hear who you're about to become */
+        ASH.audio.setTheme(ctrl.setup.playerKey);
       });
     });
     cardsEl.querySelector('.f-card[data-key="hearth"]').classList.add("picked");
@@ -527,6 +529,7 @@ var ASH = typeof ASH !== "undefined" ? ASH : {};
     });
     $("btn-setup-back").addEventListener("click", function () {
       ASH.audio.sfx("click");
+      ASH.audio.setTheme("title");
       $("setup-panel").classList.add("hidden");
       $("title-menu").classList.remove("hidden");
     });

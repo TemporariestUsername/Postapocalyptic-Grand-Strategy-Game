@@ -15,7 +15,8 @@ const ROOT = path.join(__dirname, "..");
 const CORE_FILES = [
   "js/util.js", "js/rng.js", "js/names.js", "js/data.js",
   "js/worldgen.js", "js/sim.js", "js/combat.js", "js/events.js",
-  "js/ai.js", "js/turn.js"
+  "js/ai.js", "js/turn.js",
+  "js/audio.js" // loads headless: every audio call no-ops without WebAudio
 ];
 
 function loadCore() {
@@ -617,6 +618,40 @@ test("factions: hearth — the granary holds the line", () => {
   ASH.sim.economyTick(st, hearth);
   assertEq(cap.settlement.pop, pop0, "famine cannot kill behind a Great Granary");
   assert(hearth.hope < hope0, "but it still frightens");
+});
+
+/* ================= soundtrack identities ================= */
+test("audio: every faction has a distinct, well-formed musical identity", () => {
+  const T = ASH.audio.THEMES;
+  assert(T.title, "the wasteland has its own theme");
+  for (const f of ASH.data.FACTIONS) {
+    const th = T[f.key];
+    assert(th, "theme exists for " + f.key);
+    assert(typeof th.root === "number" && th.root > 30 && th.root < 60, f.key + ": sane root pitch");
+    assert(ASH.audio.SCALES[th.scale], f.key + ": scale '" + th.scale + "' exists");
+    assert(Array.isArray(th.motif) && th.motif.length >= 3, f.key + ": has a signature motif");
+    for (const m of th.motif)
+      assert(Array.isArray(m) && m.length === 2 && typeof m[0] === "number" && m[1] > 0,
+        f.key + ": motif notes are [degree, lengthInSteps]");
+    assert(typeof th.percStyle === "string", f.key + ": percussion style");
+    assert(th.pluck && th.drone && th.wind && th.pad, f.key + ": all voices specified");
+    assert(typeof th.tempoMult === "number" && th.tempoMult > 0.5 && th.tempoMult < 2, f.key + ": tempo sane");
+  }
+  /* identities actually differ: no two factions share scale + percussion */
+  const combos = ASH.data.FACTIONS.map(f => T[f.key].scale + "|" + T[f.key].percStyle);
+  assertEq(new Set(combos).size, combos.length, "no two factions sound alike");
+});
+
+test("audio: theme switching works without an AudioContext", () => {
+  ASH.audio.setTheme("legion");
+  assertEq(ASH.audio.getTheme(), "legion");
+  ASH.audio.setTheme("no-such-people");
+  assertEq(ASH.audio.getTheme(), "title", "unknown keys fall back to the wasteland");
+  const st = fresh(42, "choir");
+  ASH.audio.updateMood(st);
+  assertEq(ASH.audio.getTheme(), "choir", "updateMood adopts the player's theme");
+  ASH.audio.updateMood(null);
+  assertEq(ASH.audio.getTheme(), "title", "and the title takes it back");
 });
 
 /* ================= full autoplay ================= */
