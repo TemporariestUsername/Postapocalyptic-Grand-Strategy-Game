@@ -205,8 +205,14 @@ byte-identical in the tests.
   change the map must mark it. Per-frame work is units, highlights, storms,
   shimmer, flashes, ash, vignette, grain, culled to the viewport.
 - `audio.js` exposes `boot()` (first user gesture), `updateMood(state)`,
-  `stinger(kind)`, `sfx(name)`; everything no-ops without an AudioContext so
-  the headless tests can load the file.
+  `setTheme(factionKey)`, `stinger(kind)`, `sfx(name)`; everything no-ops
+  without an AudioContext so the headless tests can load the file. The score
+  is THEME × MOOD: each faction's theme (`ASH.audio.THEMES`) sets the mode,
+  root, timbres, percussion style, and signature motif; the mood sets tempo,
+  layer gains, and density. `updateMood` adopts the player faction's theme
+  automatically; chord progressions are written as scale degrees so they
+  re-voice under any mode. Retuning is live — the drones glide to the new
+  root over a couple of seconds instead of cutting.
 - `ui.js` renders DOM from state and calls the controller in `main.js`;
   neither is loaded by the core tests.
 

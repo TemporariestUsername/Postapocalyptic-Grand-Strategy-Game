@@ -158,21 +158,34 @@ jumps home · **Esc** deselects · **M** mutes. The `?` button has the rest.
 ## The soundtrack
 
 There is no audio directory. `js/audio.js` builds the entire score at
-runtime in A phrygian:
+runtime from layered synthesis — drones, a noise-wind bed, slow pads, sparse
+plucked melody through a long echo, far-off FM bells, percussion — driven by
+two axes:
 
-- **Drone** — detuned saws and a sub sine breathing through a slow filter LFO;
-- **Wind** — looping brown noise through a wandering bandpass;
-- **Pads** — chord progressions chosen per *mood*, swelling over two bars;
-- **Melody** — sparse chord-aware plucks through a long feedback echo, with
-  rare far-off FM bells;
-- **Percussion** — toms and metal clanks that only wake when the mood does.
+**Who you are.** Every faction has its own musical identity: its own mode,
+root pitch, instrumentation, percussion, and a short signature motif that
+surfaces now and then in the melody. Click a banner on the setup screen and
+you'll hear who you're about to become:
 
-The **mood engine** (calm / tension / war / doom / title) follows the game
-state — your wars, your hope, storms on the horizon — and crossfades the
-layers over seconds, so peace sounds like grief on hold and war sounds like a
-forge falling downstairs. Stingers punctuate events, battles, declarations,
-victory, defeat. Every interface click, march, salvage rattle, and hammer
-blow is an envelope over oscillators and filtered noise.
+| Faction | Their music |
+|---|---|
+| Hearthbound | D Dorian — warm folk minor, soft wood drums, a rising "planting" phrase |
+| Rust Legion | G Phrygian dominant — martial and scorched; anvils always within earshot, marching ticks in war |
+| Veiled Choir | C Lydian — radiant and wrong in a beautiful way; breathing vibrato pads, bells, a gong like a vast slow heart |
+| Free Caravans | D Mixolydian — road music; bright quick plucks over a faint constant shaker, like wheels that never stop |
+| Archivists | A harmonic minor — monastic; music-box bells, tape-hiss wind, a clock ticking in the stacks |
+| Court of Teeth | F Locrian — nothing resolves; melody notes bend in like howls, skin drums land where they please |
+
+**How it's going.** The mood engine (calm / tension / war / doom / title)
+follows the game state — your wars, your hope, storms on the horizon — and
+crossfades layer intensities, tempo, and note density over seconds, so peace
+sounds like grief on hold and war sounds like a forge falling downstairs.
+The two axes multiply: the Choir at war is still the Choir, just louder
+about it.
+
+Stingers punctuate events, battles, declarations, victory, defeat — all in
+your faction's voice. Every interface click, march, salvage rattle, and
+hammer blow is an envelope over oscillators and filtered noise.
 
 ## The graphics
 
