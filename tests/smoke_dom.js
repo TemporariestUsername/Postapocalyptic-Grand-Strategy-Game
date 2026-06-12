@@ -59,6 +59,16 @@ const dom = new JSDOM(shellHtml, {
 const { window } = dom;
 window.addEventListener("error", (e) => errors.push(e.error || e.message));
 
+/* Simulate real browser layout for the map container: it measures 0x0 while
+ * the game screen is display:none and gains size once shown. This reproduces
+ * the "black map" bug class — a canvas sized from a hidden container. */
+{
+  const wrap = window.document.getElementById("map-wrap");
+  const gameHidden = () => window.document.getElementById("game-screen").classList.contains("hidden");
+  Object.defineProperty(wrap, "clientWidth", { get: () => (gameHidden() ? 0 : 1024) });
+  Object.defineProperty(wrap, "clientHeight", { get: () => (gameHidden() ? 0 : 700) });
+}
+
 /* load the scripts in page order as inline <script> elements */
 const scripts = [...html.matchAll(/<script src="([^"]+)"><\/script>/g)].map(m => m[1]);
 for (const src of scripts) {
@@ -111,6 +121,12 @@ function click(id) {
   check(document.getElementById("top-fname").textContent.includes("Legion"), "top bar shows faction");
   check(document.getElementById("resources").children.length === 5, "five resources shown");
   check(document.getElementById("log-entries").children.length > 0, "ledger has entries");
+  /* the map canvas must be sized from its NOW-VISIBLE container, not the
+   * 0x0 it measured while hidden at boot (the black-map bug) */
+  await new Promise(r => setTimeout(r, 120)); // let a few frames run
+  const mapCv = document.getElementById("map");
+  check(mapCv.width === 1024 && mapCv.height === 700,
+    "map canvas sized to its container (" + mapCv.width + "x" + mapCv.height + ")");
 
   /* help modal auto-opens on first run — close it */
   await new Promise(r => setTimeout(r, 700));
