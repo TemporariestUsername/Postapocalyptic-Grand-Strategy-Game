@@ -209,7 +209,9 @@ button:disabled { opacity: 0.38; cursor: not-allowed; }
 /* ---------------- side panel ---------------- */
 #side-panel {
   position: absolute; top: 10px; right: 10px;
-  width: 304px; max-height: calc(100% - 20px);
+  width: 304px;
+  /* end above the minimap (bottom 86 + 148 tall + 8 gap) so it never hides it */
+  max-height: calc(100% - 252px);
   overflow-y: auto;
   z-index: 4;
   display: flex; flex-direction: column; gap: 8px;
@@ -231,6 +233,13 @@ button:disabled { opacity: 0.38; cursor: not-allowed; }
   color: var(--bone-dim); border-bottom: 1px solid #232019; padding-bottom: 4px;
 }
 .b-row { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; font-size: 11.5px; align-items: baseline; }
+.doc-line {
+  font-size: 11px; line-height: 1.45; color: var(--bone-dim);
+  padding: 3px 0 3px 12px; position: relative;
+}
+.doc-line::before { content: "▪"; position: absolute; left: 0; color: var(--ember); }
+.act.unique { border-color: #5a4a6a; }
+.act.unique:hover:not(:disabled) { border-color: #9a86c0; }
 .b-row.building b { color: var(--warn); }
 .b-row.link { cursor: pointer; }
 .b-row.link:hover b { color: #fff; }

@@ -103,8 +103,13 @@ ASH.data = (function () {
       color: "#d9913c", culture: "hearth", personality: "builder",
       title: "Warden", settlementNoun: "stead",
       blurb: "Farmers with rifles. They believe the world can be coaxed into feeding people again, and they are stubborn enough to be right.",
-      doctrine: "Strength: fields and patience. +25% food, sturdier defence, hope mends faster. Weakness: slow to anger, slow to march.",
-      mods: { food: 1.25, def: 1.1, hopeRegen: 1 },
+      doctrine: "Strength: fields and patience. +25% food, faster growth, room for one more structure, and only they raise Great Granaries — where the stores hold, nobody starves. Weakness: slow to anger, slow to march.",
+      uniques: [
+        "Great Granary (unique structure): +2 food, and famine cannot kill in its settlement",
+        "Settlements fit 7 structures instead of 6",
+        "Population grows half again as fast; hope mends faster"
+      ],
+      mods: { food: 1.25, def: 1.1, hopeRegen: 1, growth: 1.4, extraSlots: 1 },
       startUnits: ["militia", "militia", "scav"],
       aiAggro: 0.15, aiExpand: 0.8,
       aiTech: ["seedvaults", "cleanwater", "tools", "fieldmed", "signal", "powder", "combustion", "crypto", "innoculants", "arcforge", "antenna"]
@@ -114,9 +119,14 @@ ASH.data = (function () {
       color: "#c0392b", culture: "legion", personality: "warlord",
       title: "Warlord", settlementNoun: "garrison",
       blurb: "An army that outlived its war and went looking for another. They tithe the weak and call it protection. Sometimes it even is.",
-      doctrine: "Strength: iron and appetite. +25% attack, +15% scrap. Weakness: hungry, hated, and aware of neither.",
-      mods: { atk: 1.25, scrap: 1.15 },
-      startUnits: ["militia", "raider", "scav"],
+      doctrine: "Strength: iron and appetite. +25% attack; every battle won is paid in spoils; war never wearies them; and only their forges turn out War-Rigs. Weakness: peace. They have no idea what it's for.",
+      uniques: [
+        "War-Rig (unique warband): a rolling siege engine — one rides with you from the start",
+        "Spoils of War: winning a battle loots +6 scrap and lifts hope",
+        "No war-weariness — wars never drag their hope down"
+      ],
+      mods: { atk: 1.25, scrap: 1.15, spoils: true, warHopeImmune: true },
+      startUnits: ["warrig", "raider", "scav"],
       aiAggro: 0.85, aiExpand: 0.5,
       aiTech: ["tools", "powder", "combustion", "seedvaults", "signal", "arcforge", "cleanwater", "fieldmed", "crypto", "innoculants", "antenna"]
     },
@@ -125,19 +135,31 @@ ASH.data = (function () {
       color: "#9fd356", culture: "choir", personality: "zealot",
       title: "First Voice", settlementNoun: "sanctum",
       blurb: "They sing to the Glow and swear it sings back. Pilgrims walk out of the glasslands with burns like script and smiles you cannot argue with.",
-      doctrine: "Strength: faith. Hope never breaks while the sanctum stands; radiation does half work on them. Weakness: everyone else.",
-      mods: { know: 1.1, radResist: 0.5, hopeFloor: 15 },
+      doctrine: "Strength: faith. The Glow does not touch them — the glasslands are their church, their granary, and their library, and theirs alone until others learn inoculation. Sermons turn bread into spine. Hope never quite breaks. Weakness: everyone else.",
+      uniques: [
+        "The Glow ignores them: settle and walk the glasslands from turn one",
+        "Glass hexes sing to them: more knowledge, and even a little food",
+        "Sermon (ability, every 4 seasons): spend 3 food for +8 hope",
+        "Hope never falls below 15 while a sanctum stands"
+      ],
+      mods: { know: 1.1, radImmune: true, hopeFloor: 15, sermon: true,
+              glassYield: { know: 1.5, food: 0.5 } },
       startUnits: ["militia", "militia", "scav"],
       aiAggro: 0.55, aiExpand: 0.6,
-      aiTech: ["signal", "innoculants", "cleanwater", "crypto", "seedvaults", "tools", "fieldmed", "powder", "combustion", "arcforge", "antenna"]
+      aiTech: ["signal", "cleanwater", "crypto", "seedvaults", "tools", "fieldmed", "powder", "combustion", "innoculants", "arcforge", "antenna"]
     },
     {
       key: "caravan", name: "The Free Caravans", noun: "Caravaners",
       color: "#3da8a8", culture: "caravan", personality: "trader",
       title: "Route-Mistress", settlementNoun: "depot",
       blurb: "Rolling cities of welded trucks and counted favours. They own no land and tax every road, which is better.",
-      doctrine: "Strength: wheels and ledgers. +25% scrap and fuel, the best market rates. Weakness: everything they love can be stolen.",
-      mods: { scrap: 1.25, fuel: 1.25, trade: true },
+      doctrine: "Strength: wheels and ledgers. Everything they field moves a hex further; every banner they aren't shooting at pays them road-toll; and the market always gives them the friendly price. Weakness: everything they love can be stolen.",
+      uniques: [
+        "Wheels: every warband moves +1 hex per season",
+        "Trade routes: +0.7 scrap per season for each living faction at peace with you",
+        "The market's best rates, buying and selling"
+      ],
+      mods: { scrap: 1.25, fuel: 1.25, trade: true, moveBonus: 1, routes: true },
       startUnits: ["scav", "scav", "militia"],
       aiAggro: 0.25, aiExpand: 0.7,
       aiTech: ["combustion", "tools", "signal", "seedvaults", "crypto", "cleanwater", "powder", "fieldmed", "arcforge", "innoculants", "antenna"]
@@ -147,10 +169,16 @@ ASH.data = (function () {
       color: "#7d8fd0", culture: "archive", personality: "hermit",
       title: "Lexarch", settlementNoun: "stack",
       blurb: "Monks of the magnetic tape. They burned villages' worth of effort saving books nobody alive can read — yet. That 'yet' is their whole religion.",
-      doctrine: "Strength: memory. +50% knowledge, walls of conviction (+15% defence). Weakness: an army of librarians is an army of librarians.",
-      mods: { know: 1.5, def: 1.15 },
+      doctrine: "Strength: memory. +50% knowledge, every Remembrance a fifth cheaper, and they begin already knowing Signal Discipline — the wasteland whispers to them from day one. Weakness: an army of librarians is an army of librarians.",
+      uniques: [
+        "Begin knowing Signal Discipline: far sight, rival capitals marked",
+        "Remembrance costs 20% less knowledge",
+        "Walls of conviction: +15% defence"
+      ],
+      mods: { know: 1.5, def: 1.15, techDiscount: 0.8 },
       startUnits: ["militia", "scav"],
       startRes: { know: 8 },
+      startTechs: ["signal"],
       aiAggro: 0.05, aiExpand: 0.45,
       aiTech: ["signal", "crypto", "cleanwater", "seedvaults", "tools", "fieldmed", "antenna", "powder", "innoculants", "combustion", "arcforge"]
     },
@@ -159,11 +187,18 @@ ASH.data = (function () {
       color: "#cdbfa3", culture: "feral", personality: "raider",
       title: "Alpha", settlementNoun: "warren",
       blurb: "The wastes' own children — changed, quick, and done apologising for it. They den in places that kill ordinary people and breed like a grudge.",
-      doctrine: "Strength: the Glow ignores them; broods grow fast; +10% attack. Weakness: scrap-poor, trusted by no one, including each other.",
-      mods: { atk: 1.1, radImmune: true, growth: 1.5, scrap: 0.85 },
-      startUnits: ["raider", "raider", "scav"],
+      doctrine: "Strength: appetite. The Glow ignores them; their wounds close anywhere, owned ground or not; their victories are eaten, not counted; and they run Glowhound packs that no one else can whistle for. Weakness: scrap-poor, trusted by no one, including each other.",
+      uniques: [
+        "Glowhounds (unique warband): fast packs that eat food, not scrap — two run with you from the start",
+        "Carrion: winning a battle feeds you +4 food and stirs the blood",
+        "Wounds close anywhere — no need for home soil",
+        "The Glow ignores them; broods grow half again as fast"
+      ],
+      mods: { atk: 1.1, radImmune: true, growth: 1.5, scrap: 0.85,
+              healAnywhere: true, carrion: true },
+      startUnits: ["glowhound", "glowhound", "raider"],
       aiAggro: 0.75, aiExpand: 0.65,
-      aiTech: ["innoculants", "seedvaults", "tools", "powder", "cleanwater", "combustion", "signal", "fieldmed", "crypto", "arcforge", "antenna"]
+      aiTech: ["seedvaults", "tools", "powder", "cleanwater", "combustion", "signal", "fieldmed", "crypto", "innoculants", "arcforge", "antenna"]
     }
   ];
 
@@ -204,6 +239,20 @@ ASH.data = (function () {
       atk: 1, def: 2, move: 2, vision: 2,
       can: { found: true },
       blurb: "Families, seed-stock, a disassembled windmill, and a map with one hopeful circle on it. Guard them well."
+    },
+    warrig: {
+      name: "War-Rig", glyph: "W", faction: "legion",
+      cost: { scrap: 16, fuel: 3 }, popCost: 1, upkeep: { scrap: 0.6, fuel: 0.4 },
+      atk: 10, def: 6, move: 3, vision: 2,
+      needsBuilding: "barracks",
+      blurb: "A grain hauler reborn in plate and dozer blade, crewed by people who name their engines. When it crests a ridge, gates start opening on their own."
+    },
+    glowhound: {
+      name: "Glowhounds", glyph: "g", faction: "feral",
+      cost: { scrap: 6 }, popCost: 1, upkeep: { food: 0.5 },
+      atk: 5, def: 2, move: 4, vision: 3,
+      can: { pillage: true },
+      blurb: "Pack-beasts out of the deep glass, all shoulder and shine-eyed patience, run by handlers the pack has decided are dogs too. They are paid in meat. Keep paying them."
     }
   };
 
@@ -255,6 +304,11 @@ ASH.data = (function () {
       name: "Purifier", cost: { scrap: 15 }, turns: 2,
       effectDesc: "+1 meds; doubles food from adjacent Blightfens; shrugs off black rain",
       blurb: "Sand, charcoal, prayer, and a mile of copper pipe. What goes in shouldn't be drunk. What comes out, can."
+    },
+    granary: {
+      name: "Great Granary", cost: { scrap: 14 }, turns: 2, faction: "hearth",
+      effectDesc: "+2 food; famine cannot kill in this settlement",
+      blurb: "A cathedral of sealed clay jars and counted sacks, dim and cool and holy. Steads with a Great Granary bury their dead old."
     }
   };
 
@@ -354,7 +408,16 @@ ASH.data = (function () {
     dominionMin: 8,
     eventChance: 0.55,         // narrative event chance per player turn
     maxSettlements: 9,
-    aiMaxSettlements: 6
+    aiMaxSettlements: 6,
+    /* faction signature mechanics */
+    spoilsScrap: 6,            // Legion: loot per battle won
+    spoilsHope: 3,
+    carrionFood: 4,            // Court: meat per battle won
+    carrionHope: 2,
+    routeScrap: 0.7,           // Caravans: per living faction at peace
+    sermonCooldown: 4,         // Choir: seasons between sermons
+    sermonFood: 3,
+    sermonHope: 8
   };
 
   /* ------------------------------------------------------------------ *

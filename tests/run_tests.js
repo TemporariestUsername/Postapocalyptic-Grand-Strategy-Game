@@ -477,6 +477,148 @@ test("save/load: round trip is lossless", () => {
   validateState(st2, "loaded state");
 });
 
+/* ================= faction identities ================= */
+test("factions: signature units and structures are faction-locked", () => {
+  const st = fresh(42, "legion");
+  const legion = st.factions[0];
+  const hearth = st.factions.find(f => f.key === "hearth");
+  const cap = st.tiles[legion.capital];
+  legion.res.scrap = 100; legion.res.fuel = 50;
+  cap.settlement.buildings.push("barracks");
+  assertEq(ASH.sim.canRecruit(st, legion, cap, "warrig"), true, "legion may muster war-rigs");
+  assert(typeof ASH.sim.canRecruit(st, legion, cap, "glowhound") === "string", "legion may not whistle for glowhounds");
+  const hcap = st.tiles[hearth.capital];
+  hearth.res.scrap = 100;
+  assertEq(ASH.sim.canBuild(st, hearth, hcap, "granary"), true, "hearth may raise granaries");
+  assert(typeof ASH.sim.canBuild(st, legion, cap, "granary") === "string", "granaries are hearth craft only");
+});
+
+test("factions: legion — spoils of war and no war-weariness", () => {
+  const st = fresh(42, "legion");
+  const legion = st.factions[0], prey = st.factions[1];
+  let ground = -1, enemyGround = -1;
+  for (const t of st.tiles) {
+    if (t.terrain === "ash" && !t.units.length && !t.settlement && t.owner === -1) {
+      const n = st.adj[t.i].find(x => st.tiles[x].terrain === "ash" && !st.tiles[x].units.length && !st.tiles[x].settlement && st.tiles[x].owner === -1);
+      if (n !== undefined) { ground = t.i; enemyGround = n; break; }
+    }
+  }
+  for (let i = 0; i < 3; i++) ASH.sim.spawnUnit(st, legion.id, "warrig", ground);
+  const victim = ASH.sim.spawnUnit(st, prey.id, "scav", enemyGround);
+  victim.hp = 30;
+  const scrap0 = legion.res.scrap;
+  const rep = ASH.combat.attack(st, legion.id, ground, enemyGround);
+  assert(rep && rep.captured, "the rigs roll over them");
+  assertNear(legion.res.scrap - scrap0, ASH.data.BALANCE.spoilsScrap, 0.001, "spoils paid");
+  // war does not drag legion hope
+  legion.res.food = 50; legion.res.scrap = 50; legion.res.fuel = 20;
+  const hope0 = legion.hope;
+  ASH.sim.economyTick(st, legion);
+  assert(legion.hope >= hope0, "war-weariness does not touch the Legion");
+});
+
+test("factions: court of teeth — carrion and healing anywhere", () => {
+  const st = fresh(42, "feral");
+  const court = st.factions[0], prey = st.factions[1];
+  // carrion: win a fight, eat
+  let ground = -1, enemyGround = -1;
+  for (const t of st.tiles) {
+    if (t.terrain === "ash" && !t.units.length && !t.settlement && t.owner === -1) {
+      const n = st.adj[t.i].find(x => st.tiles[x].terrain === "ash" && !st.tiles[x].units.length && !st.tiles[x].settlement && st.tiles[x].owner === -1);
+      if (n !== undefined) { ground = t.i; enemyGround = n; break; }
+    }
+  }
+  for (let i = 0; i < 3; i++) ASH.sim.spawnUnit(st, court.id, "raider", ground);
+  const victim = ASH.sim.spawnUnit(st, prey.id, "scav", enemyGround);
+  victim.hp = 30;
+  const food0 = court.res.food;
+  const rep = ASH.combat.attack(st, court.id, ground, enemyGround);
+  assert(rep && rep.captured, "the pack takes them");
+  assertNear(court.res.food - food0, ASH.data.BALANCE.carrionFood, 0.001, "carrion eaten");
+  // healing anywhere: wounded court unit on neutral ground mends; hearth's does not
+  const neutral = st.tiles.find(t => t.owner === -1 && t.terrain === "ash" && !t.units.length && t.rad === 0);
+  const hound = ASH.sim.spawnUnit(st, court.id, "glowhound", neutral.i);
+  hound.hp = 50;
+  court.res.meds = 5;
+  ASH.sim.healTick(st, court);
+  assert(hound.hp > 50, "the Court mends on any ground");
+  const hearth = st.factions.find(f => f.key === "hearth");
+  const neutral2 = st.tiles.find(t => t.owner === -1 && t.terrain === "ash" && !t.units.length && t.rad === 0 && t.i !== neutral.i);
+  const sick = ASH.sim.spawnUnit(st, hearth.id, "militia", neutral2.i);
+  sick.hp = 50;
+  hearth.res.meds = 5;
+  ASH.sim.healTick(st, hearth);
+  assertEq(sick.hp, 50, "ordinary folk need home soil");
+});
+
+test("factions: choir — the glass is their church", () => {
+  const st = fresh(42, "choir");
+  const choir = st.factions[0];
+  // immune to the glow
+  const glass = st.tiles.find(t => t.terrain === "glass" && !t.units.length);
+  const pilgrim = ASH.sim.spawnUnit(st, choir.id, "militia", glass.i);
+  ASH.sim.radTick(st, choir);
+  assertEq(pilgrim.hp, 100, "the Glow does not touch them");
+  // may settle the glass from turn one (far enough from other settlements)
+  const site = st.tiles.find(t => t.terrain === "glass" && !t.site &&
+    st.tiles.every(x => !x.settlement || ASH.worldgen.distT(st, x.i, t.i) >= 3));
+  assert(site, "a glass site exists");
+  const crew = ASH.sim.spawnUnit(st, choir.id, "reclaimer", site.i);
+  assert(ASH.sim.canFound(st, crew.id), "the Choir settles the unsettleable");
+  assert(ASH.sim.found(st, crew.id), "sanctum founded in the glass");
+  const y = ASH.sim.yieldsOf(st, site);
+  assert(y.know >= 3, "the glass sings knowledge to them (got " + y.know + ")");
+  assert(y.food > 2, "and even a little food");
+  // sermon: food for hope, then the choir rests
+  choir.hope = 40; choir.res.food = 20;
+  assertEq(ASH.sim.canSermon(st, choir), true);
+  assert(ASH.sim.sermon(st, choir));
+  assertEq(choir.hope, 48, "+8 hope");
+  assert(typeof ASH.sim.canSermon(st, choir) === "string", "the Choir rests between sermons");
+  st.turn += ASH.data.BALANCE.sermonCooldown;
+  assertEq(ASH.sim.canSermon(st, choir), true, "and sings again in season");
+  // no one else preaches
+  assert(typeof ASH.sim.canSermon(st, st.factions[1]) === "string", "sermons are the Choir's alone");
+});
+
+test("factions: caravans — wheels and road-tolls", () => {
+  const st = fresh(42, "caravan");
+  const car = st.factions[0];
+  assertEq(ASH.sim.unitMoveMax(st, 0, "militia"), ASH.data.UNITS.militia.move + 1, "every warband rolls further");
+  const before = ASH.sim.factionIncome(st, car).prod.scrap;
+  ASH.sim.declareWar(st, car, st.factions[1]);
+  const after = ASH.sim.factionIncome(st, car).prod.scrap;
+  assertNear(before - after, ASH.data.BALANCE.routeScrap, 0.001, "a war closes a road");
+});
+
+test("factions: archivists — older memory, cheaper remembrance", () => {
+  const st = fresh(42, "archive");
+  const arch = st.factions[0];
+  assert(ASH.sim.hasTech(arch, "signal"), "they begin already listening");
+  const crypto = ASH.sim.techByKey("crypto");
+  assertEq(ASH.sim.techCostFor(arch, crypto), Math.round(crypto.cost * 0.8), "a fifth cheaper");
+  assert(ASH.sim.canResearch(arch, "crypto"), "signal prereq already met");
+  ASH.sim.setResearch(st, arch, "crypto");
+  arch.research.progress = ASH.sim.techCostFor(arch, crypto); // exactly the discounted price
+  arch.res.food = 50;
+  ASH.sim.economyTick(st, arch);
+  assert(ASH.sim.hasTech(arch, "crypto"), "completes at the discounted cost");
+});
+
+test("factions: hearth — the granary holds the line", () => {
+  const st = fresh(42, "hearth");
+  const hearth = st.factions[0];
+  const cap = st.tiles[hearth.capital];
+  assertEq(ASH.sim.maxBuildingsFor(hearth), ASH.data.BALANCE.maxBuildings + 1, "room for one more");
+  cap.settlement.buildings.push("granary");
+  cap.settlement.pop = 60; // far beyond the land
+  hearth.res.food = 0;
+  const pop0 = cap.settlement.pop, hope0 = hearth.hope;
+  ASH.sim.economyTick(st, hearth);
+  assertEq(cap.settlement.pop, pop0, "famine cannot kill behind a Great Granary");
+  assert(hearth.hope < hope0, "but it still frightens");
+});
+
 /* ================= full autoplay ================= */
 function autoplay(seed, turns) {
   const st = fresh(seed, "legion");

@@ -106,19 +106,21 @@ audio hardware requirement beyond a working speaker.
 
 ## The six banners
 
-| Faction | Doctrine |
+Each faction plays by its own rules, not just its own numbers:
+
+| Faction | What only they can do |
 |---|---|
-| **The Hearthbound** | Farmers with rifles. +25% food, sturdier defence, hope mends faster. Slow to anger, slow to march. |
-| **The Rust Legion** | An army that outlived its war. +25% attack, +15% scrap. Hungry, hated, and aware of neither. |
-| **The Veiled Choir** | They sing to the Glow and swear it sings back. Hope cannot break while the sanctum stands; radiation does half work on them. |
-| **The Free Caravans** | Rolling cities of welded trucks and counted favours. +25% scrap and fuel, the best market rates. Everything they love can be stolen. |
-| **The Archivists** | Monks of the magnetic tape. +50% knowledge, walls of conviction. An army of librarians is an army of librarians. |
-| **The Court of Teeth** | The wastes' own children. The Glow ignores them; broods grow fast. Trusted by no one, including each other. |
+| **The Hearthbound** | Farmers with rifles, playing tall. Only they raise **Great Granaries** — famine cannot kill in that settlement. Seven structure slots instead of six, faster growth, +25% food. |
+| **The Rust Legion** | War as an economy. **Spoils of War** pays +6 scrap per battle won; war never wearies their hope; and their barracks roll out **War-Rigs**, siege engines no one else can field. One rides with them from turn one. |
+| **The Veiled Choir** | The Glow does not touch them: they **settle the glasslands from turn one** and harvest knowledge (and even food) from ground that kills everyone else. **Sermons** turn bread into spine — 3 food for +8 hope. Hope never falls below 15. |
+| **The Free Caravans** | Everything they field moves **+1 hex**; every faction at peace with them pays **road-toll** (+0.7 scrap each, per season); the market always gives them the friendly price. Peace literally pays. |
+| **The Archivists** | They begin already knowing **Signal Discipline**, every Remembrance costs **20% less**, and they bank +50% knowledge. The tech rush, with walls of conviction. |
+| **The Court of Teeth** | Their wounds **close anywhere**, owned ground or not; **Carrion** feeds them +4 food per battle won; and they run **Glowhound** packs — fast, cheap, paid in meat instead of scrap. A war-machine that eats its way forward. |
 
 All six are playable; the other five are run by personality-driven AI
 (builder, warlord, zealot, trader, hermit, raider) that expands, builds,
-researches, raids, declares wars it thinks it can win, and sues for peace
-when it turns out it couldn't.
+researches, raids, declares wars it thinks it can win, sues for peace when it
+turns out it couldn't — and uses its own signature tricks against you.
 
 ## How a season goes
 

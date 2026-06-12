@@ -108,7 +108,7 @@ ASH.ui = (function () {
       '<div class="kv"><span>Souls</span><b>' + (s.pop * 20) + '</b></div>' +
       '<div class="kv"><span>Yields</span><b>' + yieldStr(y) + '</b></div>';
     /* buildings */
-    h += '<div class="sub-title">STRUCTURES (' + s.buildings.length + '/' + D().BALANCE.maxBuildings + ')</div>';
+    h += '<div class="sub-title">STRUCTURES (' + s.buildings.length + '/' + S.maxBuildingsFor(f) + ')</div>';
     if (!s.buildings.length) h += '<div class="muted">Bare ground and intentions.</div>';
     s.buildings.forEach(function (bk) {
       var b = D().BUILDINGS[bk];
@@ -118,13 +118,14 @@ ASH.ui = (function () {
       var b2 = D().BUILDINGS[s.queue.key];
       h += '<div class="b-row building"><b>' + b2.name + '</b><span>' + s.queue.left + ' season' + (s.queue.left > 1 ? 's' : '') + ' left</span></div>';
     }
-    /* build menu */
+    /* build menu — other banners' signature works are not offered */
     h += '<div class="sub-title">BUILD</div><div class="btn-grid">';
     U.each(D().BUILDINGS, function (b, key) {
       if (s.buildings.indexOf(key) !== -1) return;
+      if (b.faction && b.faction !== f.key) return;
       var can = S.canBuild(st, f, t, key);
       var dis = can !== true ? ' disabled data-why="' + esc(can) + '"' : '';
-      h += '<button class="act build-btn" data-key="' + key + '"' + dis +
+      h += '<button class="act build-btn' + (b.faction ? ' unique' : '') + '" data-key="' + key + '"' + dis +
         ' data-tip="' + esc(b.blurb + " — " + b.effectDesc) + '">' +
         b.name + '<span class="cost">' + costStr(b.cost) + ' · ' + b.turns + 's</span></button>';
     });
@@ -132,9 +133,10 @@ ASH.ui = (function () {
     /* recruit menu */
     h += '<div class="sub-title">MUSTER</div><div class="btn-grid">';
     U.each(D().UNITS, function (u, key) {
+      if (u.faction && u.faction !== f.key) return;
       var can = S.canRecruit(st, f, t, key);
       var dis = can !== true ? ' disabled data-why="' + esc(can) + '"' : '';
-      h += '<button class="act recruit-btn" data-key="' + key + '"' + dis +
+      h += '<button class="act recruit-btn' + (u.faction ? ' unique' : '') + '" data-key="' + key + '"' + dis +
         ' data-tip="' + esc(u.blurb) + '">' + u.name +
         '<span class="cost">' + costStr(u.cost) + ' · ' + u.popCost * 20 + ' souls</span></button>';
     });
@@ -214,9 +216,24 @@ ASH.ui = (function () {
       '<div class="kv"><span>Warbands</span><b>' + units.length + '</b></div>';
     if (f.research) {
       var tech = S.techByKey(f.research.key);
-      h += '<div class="kv"><span>Researching</span><b>' + tech.name + ' ' + Math.floor(f.research.progress) + '/' + tech.cost + '</b></div>';
+      h += '<div class="kv"><span>Researching</span><b>' + tech.name + ' ' + Math.floor(f.research.progress) + '/' + S.techCostFor(f, tech) + '</b></div>';
     } else {
       h += '<div class="kv warn"><span>Researching</span><b>NOTHING — open Remembrance</b></div>';
+    }
+    /* the ways of your people */
+    var uniques = S.factionDef(f).uniques || [];
+    if (uniques.length) {
+      h += '<div class="sub-title">THE WAYS OF YOUR PEOPLE</div>';
+      uniques.forEach(function (u) {
+        h += '<div class="doc-line">' + esc(u) + '</div>';
+      });
+    }
+    if (S.mods(f).sermon) {
+      var can = S.canSermon(st, f);
+      var dis = can !== true ? ' disabled data-why="' + esc(can) + '"' : '';
+      h += '<button class="act primary" id="btn-sermon"' + dis +
+        ' data-tip="The Bright Procession: spend ' + D().BALANCE.sermonFood + ' food, gain +' + D().BALANCE.sermonHope + ' hope. Once every ' + D().BALANCE.sermonCooldown + ' seasons.">HOLD SERMON' +
+        '<span class="cost">' + D().BALANCE.sermonFood + ' food → +' + D().BALANCE.sermonHope + ' hope</span></button>';
     }
     h += '<div class="sub-title">HOLDINGS</div>';
     setts.forEach(function (t) {
@@ -238,6 +255,8 @@ ASH.ui = (function () {
         ASH.audio.sfx("click");
       });
     });
+    var sermonBtn = root.querySelector("#btn-sermon");
+    if (sermonBtn) sermonBtn.addEventListener("click", function () { ctrl.sermon(); });
   }
 
   function wireSide(root, t) {
@@ -383,8 +402,9 @@ ASH.ui = (function () {
     var h = '<h2>REMEMBRANCE</h2><div class="muted center">What the old world knew, the new world can learn again.</div>';
     if (f.research) {
       var cur = S.techByKey(f.research.key);
-      var pct = Math.min(100, Math.round(f.research.progress / cur.cost * 100));
-      h += '<div class="research-now">Recovering <b>' + cur.name + '</b><div class="hp-bar wide"><div style="width:' + pct + '%"></div></div>' + Math.floor(f.research.progress) + ' / ' + cur.cost + '</div>';
+      var curCost = S.techCostFor(f, cur);
+      var pct = Math.min(100, Math.round(f.research.progress / curCost * 100));
+      h += '<div class="research-now">Recovering <b>' + cur.name + '</b><div class="hp-bar wide"><div style="width:' + pct + '%"></div></div>' + Math.floor(f.research.progress) + ' / ' + curCost + '</div>';
     }
     h += '<div class="tech-cols">';
     U.each(branches, function (list, name) {
@@ -397,7 +417,7 @@ ASH.ui = (function () {
         h += '<div class="tech-card ' + cls + '" data-key="' + t.key + '" data-tip="' + esc(t.blurb) + '">' +
           '<div class="tech-name">' + t.name + '</div>' +
           '<div class="tech-eff">' + esc(t.effectDesc) + '</div>' +
-          '<div class="tech-cost">' + (done ? "REMEMBERED" : (current ? "IN PROGRESS" : t.cost + " knowledge")) + '</div></div>';
+          '<div class="tech-cost">' + (done ? "REMEMBERED" : (current ? "IN PROGRESS" : S.techCostFor(f, t) + " knowledge")) + '</div></div>';
       });
       h += '</div>';
     });

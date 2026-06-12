@@ -169,6 +169,16 @@ var ASH = typeof ASH !== "undefined" ? ASH : {};
       } else ASH.audio.sfx("error");
       ASH.ui.refresh();
     },
+    sermon: function () {
+      var st = ctrl.state;
+      if (S.sermon(st, st.factions[0])) {
+        ASH.audio.sfx("research");
+        ASH.audio.stinger("event");
+        ASH.ui.toast("The Choir sings. Hope kindles.", "good");
+        ASH.audio.updateMood(st);
+      } else ASH.audio.sfx("error");
+      ASH.ui.refresh();
+    },
     tradeDo: function (dir, res, amt) {
       var st = ctrl.state;
       if (S.trade(st, st.factions[0], dir, res, amt)) ASH.audio.sfx("coin");
