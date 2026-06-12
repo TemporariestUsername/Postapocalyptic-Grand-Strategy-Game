@@ -76,7 +76,7 @@ ASH.ai = (function () {
     if (have >= want) return;
     var setts = S.settlementsOf(state, f.id);
     var prefs = (f.personality === "warlord" || f.personality === "raider")
-      ? ["veteran", "raider", "militia", "scav"]
+      ? ["warrig", "glowhound", "veteran", "raider", "militia", "scav"]
       : (f.personality === "hermit" || f.personality === "builder")
         ? ["militia", "veteran", "scav", "raider"]
         : ["militia", "raider", "scav", "veteran"];
@@ -350,6 +350,8 @@ ASH.ai = (function () {
     tryExpand(state, f);
     considerWar(state, f);
     unitOrders(state, f);
+    /* the Choir preaches when spirits flag */
+    if (f.hope < 65 && S.canSermon(state, f) === true) S.sermon(state, f);
     ASH.events.aiTick(state, f);
   }
 

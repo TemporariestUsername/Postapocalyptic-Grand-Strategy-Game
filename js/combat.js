@@ -113,6 +113,26 @@ ASH.combat = (function () {
       captureTile(state, attacker, defender, tile, atkUnits[0]);
     }
 
+    /* the wasteland pays its winners: Legion spoils, Court carrion */
+    var victor = null;
+    if (defendersGone && atkUnits.length) victor = attacker;
+    else if (!atkUnits.length && !defendersGone) victor = defender;
+    if (victor) {
+      var vm = S.mods(victor), B = D().BALANCE;
+      if (vm.spoils) {
+        victor.res.scrap += B.spoilsScrap;
+        victor.hope = U.clamp(victor.hope + B.spoilsHope, 0, 100);
+        report.spoils = B.spoilsScrap;
+        if (victor.isPlayer) S.log(state, "The Legion strip the field to the bolts: +" + B.spoilsScrap + " scrap, and the war-songs get a new verse.", "good", victor.id);
+      }
+      if (vm.carrion) {
+        victor.res.food += B.carrionFood;
+        victor.hope = U.clamp(victor.hope + B.carrionHope, 0, 100);
+        report.carrion = B.carrionFood;
+        if (victor.isPlayer) S.log(state, "The Court wastes nothing. The packs eat well tonight: +" + B.carrionFood + " food.", "good", victor.id);
+      }
+    }
+
     attacker.stats[report.captured ? "battlesWon" : (defendersGone ? "battlesWon" : "battlesLost")]++;
     defender.stats[defendersGone ? "battlesLost" : "battlesWon"]++;
 

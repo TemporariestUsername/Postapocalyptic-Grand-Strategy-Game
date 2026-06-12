@@ -157,6 +157,26 @@ Checked at the end of every season:
 The Legacy score: `settlements×15 + pop×2 + techs×10 + battlesWon×5 +
 salvaged×3 + turns (+100 for winning)`.
 
+## 8b. Faction identities
+
+Beyond yield multipliers, every faction owns at least one rule the others
+don't get. The flags live in each faction's `mods` in `data.js`; the hooks
+they pull are listed here so you can find them:
+
+| Faction | Mechanic | Hook |
+|---|---|---|
+| Hearthbound | `extraSlots: 1` (7 structures), `growth: 1.4`; unique building `granary` — famine never kills pop in its settlement, and halves the hope hit | `sim.maxBuildingsFor`, starvation branch of `sim.economyTick` |
+| Rust Legion | `spoils` (+`spoilsScrap`/`spoilsHope` per battle won), `warHopeImmune` (no war drag on hope); unique unit `warrig` (needs barracks; one in `startUnits`) | victor block in `combat.attack`, hope drift in `economyTick` |
+| Veiled Choir | `radImmune` (so they settle glass/seabed from turn one via the existing `canFound` rule), `glassYield` (glass hexes yield 1.5 know + 0.5 food *to them*), `sermon` (active: `sermonFood` → `sermonHope`, every `sermonCooldown` seasons, cooldown in `f.cooldowns`), `hopeFloor: 15` | `sim.yieldsOf`, `sim.canSermon`/`sermon`, AI calls it when hope < 65 |
+| Free Caravans | `moveBonus: 1` (all units), `routes` (+`routeScrap` scrap per living faction at peace, added flat after mods), `trade` (best market rates) | `sim.unitMoveMax`, `sim.factionIncome` |
+| Archivists | `techDiscount: 0.8` (all Remembrance costs), `startTechs: ["signal"]` | `sim.techCostFor` (used by completion check and UI), `worldgen.makeFaction` |
+| Court of Teeth | `healAnywhere` (mend on any ground), `carrion` (+`carrionFood`/`carrionHope` per battle won), `radImmune`, `growth: 1.5`; unique unit `glowhound` (move 4, upkeep **food** 0.5, two in `startUnits`) | `sim.healTick`, victor block in `combat.attack` |
+
+Unique units/buildings declare `faction: "<key>"` in their data entry;
+`sim.canRecruit`/`sim.canBuild` refuse other banners and the UI doesn't even
+offer them. Spoils and Carrion pay whichever *side* won the engagement —
+a Legion defender profits from your failed assault.
+
 ## 9. AI
 
 `ai.takeTurn` per rival each season: pick research from a doctrine-ordered

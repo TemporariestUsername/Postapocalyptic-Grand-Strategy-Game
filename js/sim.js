@@ -93,8 +93,9 @@ ASH.sim = (function () {
 
   function unitMoveMax(state, fid, type) {
     var def = D().UNITS[type];
-    var m = def.move;
-    if (type === "raider" && hasTech(state.factions[fid], "combustion")) m += 1;
+    var f = state.factions[fid];
+    var m = def.move + (mods(f).moveBonus || 0);
+    if (type === "raider" && hasTech(f, "combustion")) m += 1;
     return m;
   }
 
@@ -298,9 +299,10 @@ ASH.sim = (function () {
     var s = tile.settlement;
     var y = { food: B.settlementBaseYield.food, scrap: B.settlementBaseYield.scrap, fuel: 0, meds: 0, know: 0 };
     var hasPurifier = s.buildings.indexOf("purifier") !== -1;
+    var glassYield = mods(f).glassYield; // the Choir hear the glass singing
 
     function addTerrain(t, mult) {
-      var ty = T[t.terrain].yields;
+      var ty = (t.terrain === "glass" && glassYield) ? glassYield : T[t.terrain].yields;
       U.each(ty, function (v, k) {
         var vv = v * mult;
         if (k === "food" && t.terrain === "fen" && hasPurifier) vv *= 2;
@@ -357,6 +359,15 @@ ASH.sim = (function () {
       var aiMult = D().DIFFICULTY[state.difficulty].aiYield;
       U.each(prod, function (v, k) { prod[k] = v * aiMult; });
     }
+    /* Caravan trade routes: every banner not shooting at you pays toll */
+    if (m.routes) {
+      var roads = 0;
+      for (i = 0; i < state.factions.length; i++) {
+        var o = state.factions[i];
+        if (o.id !== f.id && o.alive && !f.atWar[o.key]) roads++;
+      }
+      prod.scrap += roads * B.routeScrap;
+    }
 
     var upkeep = { food: 0, scrap: 0, fuel: 0, meds: 0, know: 0 };
     var pop = 0;
@@ -374,13 +385,17 @@ ASH.sim = (function () {
   }
 
   /* ---- construction ---- */
+  function maxBuildingsFor(f) {
+    return D().BALANCE.maxBuildings + (mods(f).extraSlots || 0);
+  }
   function canBuild(state, f, tile, key) {
     var b = D().BUILDINGS[key];
     var s = tile.settlement;
     if (!b || !s || tile.owner !== f.id) return "no";
+    if (b.faction && b.faction !== f.key) return "Not your people's craft.";
     if (s.buildings.indexOf(key) !== -1) return "Already standing.";
     if (s.queue) return "The crews are busy.";
-    if (s.buildings.length >= D().BALANCE.maxBuildings) return "No room inside the walls.";
+    if (s.buildings.length >= maxBuildingsFor(f)) return "No room inside the walls.";
     var costs = b.cost;
     if ((costs.scrap || 0) > f.res.scrap || (costs.fuel || 0) > f.res.fuel) return "Not enough materials.";
     return true;
@@ -400,6 +415,7 @@ ASH.sim = (function () {
     var def = D().UNITS[type];
     var s = tile.settlement;
     if (!def || !s || tile.owner !== f.id) return "no";
+    if (def.faction && def.faction !== f.key) return "They answer to another banner.";
     if (def.needsBuilding && s.buildings.indexOf(def.needsBuilding) === -1)
       return "Needs a " + D().BUILDINGS[def.needsBuilding].name + ".";
     if (s.pop <= def.popCost + 1) return "The " + (s.isCapital ? "capital" : "settlement") + " can't spare the people.";
@@ -439,6 +455,31 @@ ASH.sim = (function () {
     var T = D().TECHS;
     for (var i = 0; i < T.length; i++) if (T[i].key === key) return T[i];
     return null;
+  }
+  /* Archivists remember cheaper. */
+  function techCostFor(f, tech) {
+    return Math.round(tech.cost * (mods(f).techDiscount || 1));
+  }
+
+  /* ---- the Choir's Sermon ---- */
+  function canSermon(state, f) {
+    if (!mods(f).sermon) return "no";
+    if (!settlementsOf(state, f.id).length) return "No sanctum stands to sing in.";
+    var B = D().BALANCE;
+    var ready = (f.cooldowns && f.cooldowns.sermon) || 0;
+    if (state.turn < ready) return "The Choir rests " + (ready - state.turn) + " more season" + (ready - state.turn > 1 ? "s" : "") + ".";
+    if (f.res.food < B.sermonFood) return "A sermon needs a feast: " + B.sermonFood + " food.";
+    return true;
+  }
+  function sermon(state, f) {
+    if (canSermon(state, f) !== true) return false;
+    var B = D().BALANCE;
+    f.cooldowns = f.cooldowns || {};
+    f.cooldowns.sermon = state.turn + B.sermonCooldown;
+    f.res.food -= B.sermonFood;
+    f.hope = U.clamp(f.hope + B.sermonHope, 0, 100);
+    if (f.isPlayer) log(state, "The Choir sings the Bright Procession. Bread is broken, lamps are greened, and for one evening nobody in the sanctum is afraid of anything at all.", "good", f.id);
+    return true;
   }
 
   /* ------------------------------------------------ diplomacy ------- */
@@ -587,9 +628,12 @@ ASH.sim = (function () {
     var broke = f.res.scrap < 0 || f.res.fuel < 0;
     if (starving) {
       f.res.food = 0;
-      f.hope = U.clamp(f.hope - B.starvationHopeHit, 0, 100);
       var worst = U.best(setts, function (t) { return t.settlement.pop; });
-      if (worst && worst.settlement.pop > 1) {
+      var granaried = worst && worst.settlement.buildings.indexOf("granary") !== -1;
+      f.hope = U.clamp(f.hope - (granaried ? Math.ceil(B.starvationHopeHit / 2) : B.starvationHopeHit), 0, 100);
+      if (granaried) {
+        if (f.isPlayer) log(state, "The stores run dry — but " + worst.settlement.name + "'s Great Granary opens its sealed jars, and the burying-ground stays quiet. Lean, frightened, alive.", "info", f.id);
+      } else if (worst && worst.settlement.pop > 1) {
         worst.settlement.pop -= B.starvationPopHit;
         if (f.isPlayer) log(state, "The stores run dry. In " + worst.settlement.name + ", the burying-ground gains " + (B.starvationPopHit * 20) + " names. Hope gutters.", "bad", f.id);
       } else if (f.isPlayer) {
@@ -620,9 +664,9 @@ ASH.sim = (function () {
       }
     }
 
-    /* hope drift */
+    /* hope drift — the Legion does not tire of war */
     var wars = 0;
-    U.each(f.atWar, function (v) { if (v) wars++; });
+    if (!mods(f).warHopeImmune) U.each(f.atWar, function (v) { if (v) wars++; });
     if (!starving && !broke) {
       var regen = B.hopeRegen + (mods(f).hopeRegen || 0);
       f.hope = U.clamp(f.hope + regen - wars * B.warHopeDrag, 0, 100);
@@ -651,7 +695,7 @@ ASH.sim = (function () {
     if (f.research) {
       f.research.progress += Math.max(0, inc.net.know > 0 ? inc.net.know : inc.prod.know);
       var tech = techByKey(f.research.key);
-      if (tech && f.research.progress >= tech.cost) {
+      if (tech && f.research.progress >= techCostFor(f, tech)) {
         f.techs.push(tech.key);
         f.stats.techsDone++;
         f.research = null;
@@ -664,11 +708,12 @@ ASH.sim = (function () {
 
   function healTick(state, f) {
     var B = D().BALANCE;
+    var anywhere = mods(f).healAnywhere; // the Court's wounds close on any ground
     var us = unitsOf(state, f.id);
     for (var i = 0; i < us.length; i++) {
       var u = us[i];
       var t = state.tiles[u.tile];
-      if (t.owner !== f.id || u.hp >= 100) continue;
+      if ((t.owner !== f.id && !anywhere) || u.hp >= 100) continue;
       var inStorm = stormAt(state, u.tile);
       if (inStorm) continue;
       var heal = B.healPerTurn;
@@ -732,7 +777,9 @@ ASH.sim = (function () {
     canClaim: canClaim, claim: claim, canFound: canFound, found: found,
     yieldsOf: yieldsOf, factionIncome: factionIncome,
     canBuild: canBuild, startBuild: startBuild, canRecruit: canRecruit, recruit: recruit,
+    maxBuildingsFor: maxBuildingsFor,
     canResearch: canResearch, setResearch: setResearch, techByKey: techByKey,
+    techCostFor: techCostFor, canSermon: canSermon, sermon: sermon,
     declareWar: declareWar, makePeace: makePeace, acceptsPeace: acceptsPeace, relShift: relShift,
     tradeRate: tradeRate, trade: trade,
     canKindle: canKindle, startKindle: startKindle,
